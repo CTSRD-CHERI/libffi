@@ -32,7 +32,22 @@
 
 /* Define aliases so that we can handle all ABIs uniformly */
 
-#if __SIZEOF_POINTER__ == 8
+#ifdef __CHERI_PURE_CAPABILITY__
+#define PTRREG(reg) c##reg
+/* Could also use .macro to make it look more like an assembly instruction */
+#define PTRADDI(dst, src, inc) cincoffset PTRREG(dst), PTRREG(src), inc
+#define PTRMOVE(dst, src) cmove PTRREG(dst), PTRREG(src)
+#else
+#define PTRREG(reg) reg
+#define PTRADDI(dst, src, inc) addi dst, src, inc
+#define PTRMOVE(dst, src) mv dst, src
+#endif
+
+#ifdef __CHERI_PURE_CAPABILITY__
+#define PTRS __SIZEOF_POINTER__
+#define LARG clc
+#define SARG csc
+#elif __SIZEOF_POINTER__ == 8
 #define PTRS 8
 #define LARG ld
 #define SARG sd
@@ -42,16 +57,29 @@
 #define SARG sw
 #endif
 
+#define LOAD_ARG(dst, imm, base) LARG PTRREG(dst), imm(PTRREG(base))
+#define STORE_ARG(value, imm, base) SARG PTRREG(value), imm(PTRREG(base))
+
 #if __riscv_float_abi_double
 #define FLTS 8
+#ifdef __CHERI_PURE_CAPABILITY__
+#define FLARG cfld
+#define FSARG cfsd
+#else
 #define FLARG fld
 #define FSARG fsd
+#endif
 #elif __riscv_float_abi_single
 #define FLTS 4
 #define FLARG flw
 #define FSARG fsw
 #else
 #define FLTS 0
+#endif
+
+#if FLTS
+#define LOAD_FLOAT(dst, imm, base) FLARG dst, imm(PTRREG(base))
+#define STORE_FLOAT(value, imm, base) FSARG value, imm(PTRREG(base))
 #endif
 
 #define fp s0
@@ -87,57 +115,57 @@ ffi_call_asm:
     */
 
     .cfi_def_cfa 11, FRAME_LEN # interim CFA based on a1
-    SARG    fp, FRAME_LEN - 2*PTRS(a1)
+    STORE_ARG(fp, FRAME_LEN - 2*PTRS, a1)
     .cfi_offset 8, -2*PTRS
-    SARG    ra, FRAME_LEN - 1*PTRS(a1)
+    STORE_ARG(ra, FRAME_LEN - 1*PTRS, a1)
     .cfi_offset 1, -1*PTRS
 
-    addi    fp, a1, FRAME_LEN
-    mv      sp, a0
+    PTRADDI(fp, a1, FRAME_LEN)
+    PTRMOVE(sp, a0)
     .cfi_def_cfa 8, 0 # our frame is fully set up
 
     # Load arguments
-    mv      t1, a2
-    mv      t2, a3
+    PTRMOVE(t1, a2)
+    PTRMOVE(t2, a3)
 
 #if FLTS
-    FLARG   fa0, -FRAME_LEN+0*FLTS(fp)
-    FLARG   fa1, -FRAME_LEN+1*FLTS(fp)
-    FLARG   fa2, -FRAME_LEN+2*FLTS(fp)
-    FLARG   fa3, -FRAME_LEN+3*FLTS(fp)
-    FLARG   fa4, -FRAME_LEN+4*FLTS(fp)
-    FLARG   fa5, -FRAME_LEN+5*FLTS(fp)
-    FLARG   fa6, -FRAME_LEN+6*FLTS(fp)
-    FLARG   fa7, -FRAME_LEN+7*FLTS(fp)
+    LOAD_FLOAT(fa0, -FRAME_LEN+0*FLTS, fp)
+    LOAD_FLOAT(fa1, -FRAME_LEN+1*FLTS, fp)
+    LOAD_FLOAT(fa2, -FRAME_LEN+2*FLTS, fp)
+    LOAD_FLOAT(fa3, -FRAME_LEN+3*FLTS, fp)
+    LOAD_FLOAT(fa4, -FRAME_LEN+4*FLTS, fp)
+    LOAD_FLOAT(fa5, -FRAME_LEN+5*FLTS, fp)
+    LOAD_FLOAT(fa6, -FRAME_LEN+6*FLTS, fp)
+    LOAD_FLOAT(fa7, -FRAME_LEN+7*FLTS, fp)
 #endif
 
-    LARG    a0, -FRAME_LEN+8*FLTS+0*PTRS(fp)
-    LARG    a1, -FRAME_LEN+8*FLTS+1*PTRS(fp)
-    LARG    a2, -FRAME_LEN+8*FLTS+2*PTRS(fp)
-    LARG    a3, -FRAME_LEN+8*FLTS+3*PTRS(fp)
-    LARG    a4, -FRAME_LEN+8*FLTS+4*PTRS(fp)
-    LARG    a5, -FRAME_LEN+8*FLTS+5*PTRS(fp)
-    LARG    a6, -FRAME_LEN+8*FLTS+6*PTRS(fp)
-    LARG    a7, -FRAME_LEN+8*FLTS+7*PTRS(fp)
+    LOAD_ARG(a0, -FRAME_LEN+8*FLTS+0*PTRS, fp)
+    LOAD_ARG(a1, -FRAME_LEN+8*FLTS+1*PTRS, fp)
+    LOAD_ARG(a2, -FRAME_LEN+8*FLTS+2*PTRS, fp)
+    LOAD_ARG(a3, -FRAME_LEN+8*FLTS+3*PTRS, fp)
+    LOAD_ARG(a4, -FRAME_LEN+8*FLTS+4*PTRS, fp)
+    LOAD_ARG(a5, -FRAME_LEN+8*FLTS+5*PTRS, fp)
+    LOAD_ARG(a6, -FRAME_LEN+8*FLTS+6*PTRS, fp)
+    LOAD_ARG(a7, -FRAME_LEN+8*FLTS+7*PTRS, fp)
 
     /* Call */
     jalr    t1
 
     /* Save return values - only a0/a1 (fa0/fa1) are used */
 #if FLTS
-    FSARG   fa0, -FRAME_LEN+0*FLTS(fp)
-    FSARG   fa1, -FRAME_LEN+1*FLTS(fp)
+    STORE_FLOAT(fa0, -FRAME_LEN+0*FLTS, fp)
+    STORE_FLOAT(fa1, -FRAME_LEN+1*FLTS, fp)
 #endif
 
-    SARG    a0, -FRAME_LEN+8*FLTS+0*PTRS(fp)
-    SARG    a1, -FRAME_LEN+8*FLTS+1*PTRS(fp)
+    STORE_ARG(a0, -FRAME_LEN+8*FLTS+0*PTRS, fp)
+    STORE_ARG(a1, -FRAME_LEN+8*FLTS+1*PTRS, fp)
 
     /* Restore and return */
-    addi    sp, fp, -FRAME_LEN
+    PTRADDI(sp, fp, -FRAME_LEN)
     .cfi_def_cfa 2, FRAME_LEN
-    LARG    ra, -1*PTRS(fp)
+    LOAD_ARG(ra, -1*PTRS, fp)
     .cfi_restore 1
-    LARG    fp, -2*PTRS(fp)
+    LOAD_ARG(fp, -2*PTRS, fp)
     .cfi_restore 8
     ret
     .cfi_endproc
@@ -158,61 +186,66 @@ ffi_call_asm:
 ffi_closure_asm:
     .cfi_startproc
 
-    addi    sp,  sp, -FRAME_LEN
+    PTRADDI(sp,  sp, -FRAME_LEN)
     .cfi_def_cfa_offset FRAME_LEN
 
     /* make a frame */
-    SARG    fp, FRAME_LEN - 2*PTRS(sp)
+    STORE_ARG(fp, FRAME_LEN - 2*PTRS, sp)
     .cfi_offset 8, -2*PTRS
-    SARG    ra, FRAME_LEN - 1*PTRS(sp)
+    STORE_ARG(ra, FRAME_LEN - 1*PTRS, sp)
     .cfi_offset 1, -1*PTRS
-    addi    fp, sp, FRAME_LEN
+    PTRADDI(fp, sp, FRAME_LEN)
 
     /* save arguments */
 #if FLTS
-    FSARG   fa0, 0*FLTS(sp)
-    FSARG   fa1, 1*FLTS(sp)
-    FSARG   fa2, 2*FLTS(sp)
-    FSARG   fa3, 3*FLTS(sp)
-    FSARG   fa4, 4*FLTS(sp)
-    FSARG   fa5, 5*FLTS(sp)
-    FSARG   fa6, 6*FLTS(sp)
-    FSARG   fa7, 7*FLTS(sp)
+    STORE_FLOAT(fa0, 0*FLTS, sp)
+    STORE_FLOAT(fa1, 1*FLTS, sp)
+    STORE_FLOAT(fa2, 2*FLTS, sp)
+    STORE_FLOAT(fa3, 3*FLTS, sp)
+    STORE_FLOAT(fa4, 4*FLTS, sp)
+    STORE_FLOAT(fa5, 5*FLTS, sp)
+    STORE_FLOAT(fa6, 6*FLTS, sp)
+    STORE_FLOAT(fa7, 7*FLTS, sp)
 #endif
 
-    SARG    a0, 8*FLTS+0*PTRS(sp)
-    SARG    a1, 8*FLTS+1*PTRS(sp)
-    SARG    a2, 8*FLTS+2*PTRS(sp)
-    SARG    a3, 8*FLTS+3*PTRS(sp)
-    SARG    a4, 8*FLTS+4*PTRS(sp)
-    SARG    a5, 8*FLTS+5*PTRS(sp)
-    SARG    a6, 8*FLTS+6*PTRS(sp)
-    SARG    a7, 8*FLTS+7*PTRS(sp)
+    STORE_ARG(a0, 8*FLTS+0*PTRS, sp)
+    STORE_ARG(a1, 8*FLTS+1*PTRS, sp)
+    STORE_ARG(a2, 8*FLTS+2*PTRS, sp)
+    STORE_ARG(a3, 8*FLTS+3*PTRS, sp)
+    STORE_ARG(a4, 8*FLTS+4*PTRS, sp)
+    STORE_ARG(a5, 8*FLTS+5*PTRS, sp)
+    STORE_ARG(a6, 8*FLTS+6*PTRS, sp)
+    STORE_ARG(a7, 8*FLTS+7*PTRS, sp)
 
     /* enter C */
-    LARG    a0, FFI_TRAMPOLINE_SIZE+0*PTRS(t1)
-    LARG    a1, FFI_TRAMPOLINE_SIZE+1*PTRS(t1)
-    LARG    a2, FFI_TRAMPOLINE_SIZE+2*PTRS(t1)
-    addi    a3, sp, FRAME_LEN
-    mv      a4, sp
+    LOAD_ARG(a0, FFI_TRAMPOLINE_SIZE+0*PTRS, t1)
+    LOAD_ARG(a1, FFI_TRAMPOLINE_SIZE+1*PTRS, t1)
+    LOAD_ARG(a2, FFI_TRAMPOLINE_SIZE+2*PTRS, t1)
+    PTRADDI(a3, sp, FRAME_LEN)
+    PTRMOVE(a4, sp)
 
+#ifdef __CHERI_PURE_CAPABILITY__
+    cllc    cra, ffi_closure_inner
+    cjalr   cra
+#else
     call    ffi_closure_inner
+#endif
 
     /* return values */
 #if FLTS
-    FLARG   fa0, 0*FLTS(sp)
-    FLARG   fa1, 1*FLTS(sp)
+    LOAD_FLOAT(fa0, 0*FLTS, sp)
+    LOAD_FLOAT(fa1, 1*FLTS, sp)
 #endif
 
-    LARG    a0, 8*FLTS+0*PTRS(sp)
-    LARG    a1, 8*FLTS+1*PTRS(sp)
+    LOAD_ARG(a0, 8*FLTS+0*PTRS, sp)
+    LOAD_ARG(a1, 8*FLTS+1*PTRS, sp)
 
     /* restore and return */
-    LARG    ra, FRAME_LEN-1*PTRS(sp)
+    LOAD_ARG(ra, FRAME_LEN-1*PTRS, sp)
     .cfi_restore 1
-    LARG    fp, FRAME_LEN-2*PTRS(sp)
+    LOAD_ARG(fp, FRAME_LEN-2*PTRS, sp)
     .cfi_restore 8
-    addi    sp, sp, FRAME_LEN
+    PTRADDI(sp, sp, FRAME_LEN)
     .cfi_def_cfa_offset 0
     ret
     .cfi_endproc
@@ -232,61 +265,66 @@ ffi_closure_asm:
 ffi_go_closure_asm:
     .cfi_startproc
 
-    addi    sp,  sp, -FRAME_LEN
+    PTRADDI(sp,  sp, -FRAME_LEN)
     .cfi_def_cfa_offset FRAME_LEN
 
     /* make a frame */
-    SARG    fp, FRAME_LEN - 2*PTRS(sp)
+    STORE_ARG(fp, FRAME_LEN - 2*PTRS, sp)
     .cfi_offset 8, -2*PTRS
-    SARG    ra, FRAME_LEN - 1*PTRS(sp)
+    STORE_ARG(ra, FRAME_LEN - 1*PTRS, sp)
     .cfi_offset 1, -1*PTRS
-    addi    fp, sp, FRAME_LEN
+    PTRADDI(fp, sp, FRAME_LEN)
 
     /* save arguments */
 #if FLTS
-    FSARG   fa0, 0*FLTS(sp)
-    FSARG   fa1, 1*FLTS(sp)
-    FSARG   fa2, 2*FLTS(sp)
-    FSARG   fa3, 3*FLTS(sp)
-    FSARG   fa4, 4*FLTS(sp)
-    FSARG   fa5, 5*FLTS(sp)
-    FSARG   fa6, 6*FLTS(sp)
-    FSARG   fa7, 7*FLTS(sp)
+    STORE_FLOAT(fa0, 0*FLTS, sp)
+    STORE_FLOAT(fa1, 1*FLTS, sp)
+    STORE_FLOAT(fa2, 2*FLTS, sp)
+    STORE_FLOAT(fa3, 3*FLTS, sp)
+    STORE_FLOAT(fa4, 4*FLTS, sp)
+    STORE_FLOAT(fa5, 5*FLTS, sp)
+    STORE_FLOAT(fa6, 6*FLTS, sp)
+    STORE_FLOAT(fa7, 7*FLTS, sp)
 #endif
 
-    SARG    a0, 8*FLTS+0*PTRS(sp)
-    SARG    a1, 8*FLTS+1*PTRS(sp)
-    SARG    a2, 8*FLTS+2*PTRS(sp)
-    SARG    a3, 8*FLTS+3*PTRS(sp)
-    SARG    a4, 8*FLTS+4*PTRS(sp)
-    SARG    a5, 8*FLTS+5*PTRS(sp)
-    SARG    a6, 8*FLTS+6*PTRS(sp)
-    SARG    a7, 8*FLTS+7*PTRS(sp)
+    STORE_ARG(a0, 8*FLTS+0*PTRS, sp)
+    STORE_ARG(a1, 8*FLTS+1*PTRS, sp)
+    STORE_ARG(a2, 8*FLTS+2*PTRS, sp)
+    STORE_ARG(a3, 8*FLTS+3*PTRS, sp)
+    STORE_ARG(a4, 8*FLTS+4*PTRS, sp)
+    STORE_ARG(a5, 8*FLTS+5*PTRS, sp)
+    STORE_ARG(a6, 8*FLTS+6*PTRS, sp)
+    STORE_ARG(a7, 8*FLTS+7*PTRS, sp)
 
     /* enter C */
-    LARG    a0, 1*PTRS(t2)
-    LARG    a1, 2*PTRS(t2)
-    mv      a2, t2
-    addi    a3, sp, FRAME_LEN
-    mv      a4, sp
+    LOAD_ARG(a0, 1*PTRS, t2)
+    LOAD_ARG(a1, 2*PTRS, t2)
+    PTRMOVE(a2, t2)
+    PTRADDI(a3, sp, FRAME_LEN)
+    PTRMOVE(a4, sp)
 
+#ifdef __CHERI_PURE_CAPABILITY__
+    cllc    cra, ffi_closure_inner
+    cjalr   cra
+#else
     call    ffi_closure_inner
+#endif
 
     /* return values */
 #if FLTS
-    FLARG   fa0, 0*FLTS(sp)
-    FLARG   fa1, 1*FLTS(sp)
+    LOAD_FLOAT(fa0, 0*FLTS, sp)
+    LOAD_FLOAT(fa1, 1*FLTS, sp)
 #endif
 
-    LARG    a0, 8*FLTS+0*PTRS(sp)
-    LARG    a1, 8*FLTS+1*PTRS(sp)
+    LOAD_ARG(a0, 8*FLTS+0*PTRS, sp)
+    LOAD_ARG(a1, 8*FLTS+1*PTRS, sp)
 
     /* restore and return */
-    LARG    ra, FRAME_LEN-1*PTRS(sp)
+    LOAD_ARG(ra, FRAME_LEN-1*PTRS, sp)
     .cfi_restore 1
-    LARG    fp, FRAME_LEN-2*PTRS(sp)
+    LOAD_ARG(fp, FRAME_LEN-2*PTRS, sp)
     .cfi_restore 8
-    addi    sp, sp, FRAME_LEN
+    PTRADDI(sp, sp, FRAME_LEN)
     .cfi_def_cfa_offset 0
     ret
     .cfi_endproc
