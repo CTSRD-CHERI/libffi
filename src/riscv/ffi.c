@@ -343,12 +343,12 @@ ffi_call_int (ffi_cif *cif, void (*fn) (void), void *rvalue, void **avalue,
     /* the assembly code will deallocate all stack data at lower addresses
        than the argument region, so we need to allocate the frame and the
        return value after the arguments in a single allocation */
-    size_t alloc_base;
+    char* alloc_base;
     /* Argument region must be 16-byte aligned */
     if (_Alignof(max_align_t) >= STKALIGN) {
         /* since sizeof long double is normally 16, the compiler will
            guarantee alloca alignment to at least that much */
-        alloc_base = (size_t)alloca(alloc_size);
+        alloc_base = alloca(alloc_size);
     } else {
         alloc_base = FFI_ALIGN(alloca(alloc_size + STKALIGN - 1), STKALIGN);
     }
