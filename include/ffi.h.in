@@ -320,7 +320,7 @@ typedef struct {
   void      *user_data;
 } ffi_closure
 #ifdef __GNUC__
-    __attribute__((aligned (8)))
+    __attribute__((aligned (sizeof(void*) > 8 ? sizeof(void*) : 8)))
 #endif
     ;
 
