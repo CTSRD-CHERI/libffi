@@ -149,7 +149,11 @@ ffi_call_asm:
     LOAD_ARG(a7, -FRAME_LEN+8*FLTS+7*PTRS, fp)
 
     /* Call */
+#ifdef __CHERI_PURE_CAPABILITY__
+    cjalr   ct1
+#else
     jalr    t1
+#endif
 
     /* Save return values - only a0/a1 (fa0/fa1) are used */
 #if FLTS
@@ -167,7 +171,11 @@ ffi_call_asm:
     .cfi_restore 1
     LOAD_ARG(fp, -2*PTRS, fp)
     .cfi_restore 8
+#ifdef __CHERI_PURE_CAPABILITY__
+    cret
+#else
     ret
+#endif
     .cfi_endproc
     .size   ffi_call_asm, .-ffi_call_asm
 
@@ -247,7 +255,11 @@ ffi_closure_asm:
     .cfi_restore 8
     PTRADDI(sp, sp, FRAME_LEN)
     .cfi_def_cfa_offset 0
+#ifdef __CHERI_PURE_CAPABILITY__
+    cret
+#else
     ret
+#endif
     .cfi_endproc
     .size ffi_closure_asm, .-ffi_closure_asm
 
@@ -326,6 +338,10 @@ ffi_go_closure_asm:
     .cfi_restore 8
     PTRADDI(sp, sp, FRAME_LEN)
     .cfi_def_cfa_offset 0
+#ifdef __CHERI_PURE_CAPABILITY__
+    cret
+#else
     ret
+#endif
     .cfi_endproc
     .size ffi_go_closure_asm, .-ffi_go_closure_asm
