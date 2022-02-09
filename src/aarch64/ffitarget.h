@@ -70,7 +70,11 @@ typedef enum ffi_abi
 #endif
 
 #else
+#ifdef __CHERI_PURE_CAPABILITY__
+#define FFI_TRAMPOLINE_SIZE 48
+#else
 #define FFI_TRAMPOLINE_SIZE 24
+#endif
 #define FFI_TRAMPOLINE_CLOSURE_OFFSET FFI_TRAMPOLINE_SIZE
 #endif
 
