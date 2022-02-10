@@ -372,6 +372,11 @@ ffi_call_int (ffi_cif *cif, void (*fn) (void), void *rvalue, void **avalue,
     for (i = 0; i < cif->nargs; i++)
         marshal(&cb, cif->arg_types[i], i >= cif->riscv_nfixedargs, avalue[i]);
 
+    /* Start using the stack from the beginning of the alloca() used for
+     * arguments. We have to restore the original stack bounds so that the
+     * called function has a valid stack instead of an out-of-bounds pointer. */
+    alloc_base = __builtin_cheri_address_set(__builtin_cheri_stack_get(),
+                                             (ptraddr_t)alloc_base);
     ffi_call_asm ((void *) alloc_base, cb.aregs, fn, closure);
 
     cb.used_float = cb.used_integer = 0;
