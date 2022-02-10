@@ -50,7 +50,7 @@ typedef struct call_context
 #if ABI_FLEN
     ABI_FLOAT fa[8];
 #endif
-    size_t a[8];
+    uintptr_t a[8];
     /* used by the assembly code to in-place construct its own stack frame */
     char frame[16];
 } call_context;
@@ -334,7 +334,7 @@ ffi_call_int (ffi_cif *cif, void (*fn) (void), void *rvalue, void **avalue,
     /* this is a conservative estimate, assuming a complex return value and
        that all remaining arguments are long long / __int128 */
     size_t arg_bytes = cif->nargs <= 3 ? 0 :
-        FFI_ALIGN(2 * sizeof(size_t) * (cif->nargs - 3), STKALIGN);
+        FFI_ALIGN(2 * sizeof(uintptr_t) * (cif->nargs - 3), STKALIGN);
     size_t rval_bytes = 0;
     if (rvalue == NULL && cif->rtype->size > 2*__SIZEOF_POINTER__)
         rval_bytes = FFI_ALIGN(cif->rtype->size, STKALIGN);
@@ -359,6 +359,9 @@ ffi_call_int (ffi_cif *cif, void (*fn) (void), void *rvalue, void **avalue,
     call_builder cb;
     cb.used_float = cb.used_integer = 0;
     cb.aregs = (call_context*)(alloc_base + arg_bytes + rval_bytes);
+#ifdef __CHERI_PURE_CAPABILITY__
+    cb.aregs = __builtin_cheri_bounds_set(cb.aregs, sizeof(*cb.aregs));
+#endif
     cb.used_stack = (void*)alloc_base;
 
     int return_by_ref = passed_by_ref(&cb, cif->rtype, 0);
