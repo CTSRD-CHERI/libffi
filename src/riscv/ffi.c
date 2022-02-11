@@ -71,7 +71,7 @@ typedef struct call_builder
 
 /* integer (not pointer) less than ABI XLEN */
 /* FFI_TYPE_INT does not appear to be used */
-#if __SIZEOF_POINTER__ == 8
+#if __riscv_xlen >= 64
 #define IS_INT(type) ((type) >= FFI_TYPE_UINT8 && (type) <= FFI_TYPE_SINT64)
 #else
 #define IS_INT(type) ((type) >= FFI_TYPE_UINT8 && (type) <= FFI_TYPE_SINT32)
@@ -145,7 +145,7 @@ static void marshal_atom(call_builder *cb, int type, void *data) {
         /* 32-bit quantities are always sign-extended in the ABI */
         case FFI_TYPE_UINT32: value = *(int32_t *)data; break;
         case FFI_TYPE_SINT32: value = *(int32_t *)data; break;
-#if __SIZEOF_POINTER__ == 8
+#if __riscv_xlen >= 64
         case FFI_TYPE_UINT64: value = *(uint64_t *)data; break;
         case FFI_TYPE_SINT64: value = *(int64_t *)data; break;
 #endif
@@ -202,7 +202,7 @@ static void unmarshal_atom(call_builder *cb, int type, void *data) {
         case FFI_TYPE_SINT16: *(uint16_t *)data = (uint16_t)value; break;
         case FFI_TYPE_UINT32: *(uint32_t *)data = (uint32_t)value; break;
         case FFI_TYPE_SINT32: *(uint32_t *)data = (uint32_t)value; break;
-#if __SIZEOF_POINTER__ == 8
+#if __riscv_xlen >= 64
         case FFI_TYPE_UINT64: *(uint64_t *)data = (uint64_t)value; break;
         case FFI_TYPE_SINT64: *(uint64_t *)data = (uint64_t)value; break;
 #endif
