@@ -52,7 +52,13 @@ typedef struct call_context
 #endif
     uintptr_t a[8];
     /* used by the assembly code to in-place construct its own stack frame */
-    char frame[16];
+    struct {
+#if __SIZEOF_POINTER__ < 8
+        void* pad[2];
+#endif
+        void *saved_fp;
+        void *saved_ra;
+    } frame;
 } call_context;
 
 typedef struct call_builder
