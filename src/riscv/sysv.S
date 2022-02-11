@@ -99,7 +99,13 @@
                      void (*fn) (void), void *closure);
 */
 
-#define FRAME_LEN (8 * FLTS + 8 * PTRS + 16)
+#if __SIZEOF_POINTER__ < 8
+#define FRAME_PADDING 8
+#else
+#define FRAME_PADDING 0
+#endif
+
+#define FRAME_LEN (8 * FLTS + 8 * PTRS + FRAME_PADDING + 2 * PTRS)
 
 ffi_call_asm:
     .cfi_startproc
