@@ -269,7 +269,11 @@ double ABI_ATTR d_d16 (double a, double b, double c, double d, double e, double 
 void* ABI_ATTR vp_vpdpcpsp (void* a, double* b, char* c, Int* d)
 {
   void* ret = (char*)b + 1;
-  fprintf(out,"void* f(void*,double*,char*,Int*):(0x%p,0x%p,0x%p,0x%p)",a,b,c,d);
+#ifdef __CHERI_PURE_CAPABILITY__
+  fprintf(out,"void* f(void*,double*,char*,Int*):(%#p,%#p,%#p,%#p)",a,b,c,d);
+#else
+  fprintf(out,"void* f(void*,double*,char*,Int*):(%p,%p,%p,%p)",a,b,c,d);
+#endif
   fflush(out);
   return ret;
 }

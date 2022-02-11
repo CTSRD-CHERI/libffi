@@ -66,7 +66,7 @@ typedef struct call_builder
     call_context *aregs;
     int used_integer;
     int used_float;
-    size_t *used_stack;
+    uintptr_t *used_stack;
 } call_builder;
 
 /* integer (not pointer) less than ABI XLEN */
@@ -136,7 +136,7 @@ static float_struct_info struct_passed_as_elements(call_builder *cb, ffi_type *t
 
 /* allocates a single register, float register, or XLEN-sized stack slot to a datum */
 static void marshal_atom(call_builder *cb, int type, void *data) {
-    size_t value = 0;
+    uintptr_t value = 0;
     switch (type) {
         case FFI_TYPE_UINT8: value = *(uint8_t *)data; break;
         case FFI_TYPE_SINT8: value = *(int8_t *)data; break;
@@ -149,7 +149,7 @@ static void marshal_atom(call_builder *cb, int type, void *data) {
         case FFI_TYPE_UINT64: value = *(uint64_t *)data; break;
         case FFI_TYPE_SINT64: value = *(int64_t *)data; break;
 #endif
-        case FFI_TYPE_POINTER: value = *(size_t *)data; break;
+        case FFI_TYPE_POINTER: value = *(uintptr_t *)data; break;
 
         /* float values may be recoded in an implementation-defined way
            by hardware conforming to 2.1 or earlier, so use asm to
@@ -175,7 +175,7 @@ static void marshal_atom(call_builder *cb, int type, void *data) {
 }
 
 static void unmarshal_atom(call_builder *cb, int type, void *data) {
-    size_t value;
+    uintptr_t value;
     switch (type) {
 #if ABI_FLEN >= 32
         case FFI_TYPE_FLOAT:
@@ -196,17 +196,17 @@ static void unmarshal_atom(call_builder *cb, int type, void *data) {
     }
 
     switch (type) {
-        case FFI_TYPE_UINT8: *(uint8_t *)data = value; break;
-        case FFI_TYPE_SINT8: *(uint8_t *)data = value; break;
-        case FFI_TYPE_UINT16: *(uint16_t *)data = value; break;
-        case FFI_TYPE_SINT16: *(uint16_t *)data = value; break;
-        case FFI_TYPE_UINT32: *(uint32_t *)data = value; break;
-        case FFI_TYPE_SINT32: *(uint32_t *)data = value; break;
+        case FFI_TYPE_UINT8: *(uint8_t *)data = (uint8_t)value; break;
+        case FFI_TYPE_SINT8: *(uint8_t *)data = (uint8_t)value; break;
+        case FFI_TYPE_UINT16: *(uint16_t *)data = (uint16_t)value; break;
+        case FFI_TYPE_SINT16: *(uint16_t *)data = (uint16_t)value; break;
+        case FFI_TYPE_UINT32: *(uint32_t *)data = (uint32_t)value; break;
+        case FFI_TYPE_SINT32: *(uint32_t *)data = (uint32_t)value; break;
 #if __SIZEOF_POINTER__ == 8
-        case FFI_TYPE_UINT64: *(uint64_t *)data = value; break;
-        case FFI_TYPE_SINT64: *(uint64_t *)data = value; break;
+        case FFI_TYPE_UINT64: *(uint64_t *)data = (uint64_t)value; break;
+        case FFI_TYPE_SINT64: *(uint64_t *)data = (uint64_t)value; break;
 #endif
-        case FFI_TYPE_POINTER: *(size_t *)data = value; break;
+        case FFI_TYPE_POINTER: *(uintptr_t *)data = value; break;
         default: FFI_ASSERT(0); break;
     }
 }
@@ -245,7 +245,7 @@ static void marshal(call_builder *cb, ffi_type *type, int var, void *data) {
         if (type->alignment > __SIZEOF_POINTER__) {
             if (var)
                 cb->used_integer = FFI_ALIGN(cb->used_integer, 2);
-            cb->used_stack = (size_t *)FFI_ALIGN(cb->used_stack, 2*__SIZEOF_POINTER__);
+            cb->used_stack = (uintptr_t *)FFI_ALIGN(cb->used_stack, 2*__SIZEOF_POINTER__);
         }
 
         memcpy(realign, data, type->size);
@@ -293,7 +293,7 @@ static void *unmarshal(call_builder *cb, ffi_type *type, int var, void *data) {
         if (type->alignment > __SIZEOF_POINTER__) {
             if (var)
                 cb->used_integer = FFI_ALIGN(cb->used_integer, 2);
-            cb->used_stack = (size_t *)FFI_ALIGN(cb->used_stack, 2*__SIZEOF_POINTER__);
+            cb->used_stack = (uintptr_t *)FFI_ALIGN(cb->used_stack, 2*__SIZEOF_POINTER__);
         }
 
         if (type->size > 0)
@@ -459,7 +459,7 @@ void FFI_HIDDEN
 ffi_closure_inner (ffi_cif *cif,
 		   void (*fun) (ffi_cif *, void *, void **, void *),
 		   void *user_data,
-		   size_t *stack, call_context *aregs)
+		   uintptr_t *stack, call_context *aregs)
 {
     void **avalue = alloca(cif->nargs * sizeof(void*));
     /* storage for arguments which will be copied by unmarshal().  We could
