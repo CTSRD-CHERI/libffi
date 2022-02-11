@@ -121,6 +121,10 @@ ffi_call_asm:
     .cfi_offset 1, -1*PTRS
 
     PTRADDI(fp, a1, FRAME_LEN)
+#ifdef __CHERI_PURE_CAPABILITY__
+    /* Restore csp bounds on cfp */
+    csetaddr cfp, csp, fp
+#endif
     PTRMOVE(sp, a0)
     .cfi_def_cfa 8, 0 # our frame is fully set up
 
