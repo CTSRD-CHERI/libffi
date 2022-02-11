@@ -417,10 +417,18 @@ ffi_status ffi_prep_closure_loc(ffi_closure *closure, ffi_cif *cif, void (*fun)(
        as the memory is readable it should work */
 
     tramp[0] = 0x00000317; /* auipc t1, 0 (i.e. t0 <- codeloc) */
+#ifdef __CHERI_PURE_CAPABILITY__
+#if __riscv_xlen == 64
+    tramp[1] = 0x0103238f; /* RV64: clc ct2, 16(ct1) */
+#else
+    tramp[1] = 0x01033383; /* RV32: clc ct2, 16(ct1) */
+#endif
+#else
 #if __SIZEOF_POINTER__ == 8
     tramp[1] = 0x01033383; /* ld t2, 16(t1) */
 #else
     tramp[1] = 0x01032383; /* lw t2, 16(t1) */
+#endif
 #endif
     tramp[2] = 0x00038067; /* jr t2 */
     tramp[3] = 0x00000013; /* nop */
