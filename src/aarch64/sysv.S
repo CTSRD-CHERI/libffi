@@ -109,7 +109,7 @@ CNAME(ffi_call_SYSV):
 	 */
 	cfi_def_cfa(GP_REG(1), 0);
 #else
-	cfi_def_cfa(GP_REG(1), 40);
+	cfi_def_cfa(GP_REG(1), CALL_FRAME_SIZE);
 #endif
 	stp	GP_REG(29), GP_REG(30), [PTR_REG(1)]
 	mov	GP_REG(9), sp
