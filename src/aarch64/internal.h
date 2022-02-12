@@ -88,6 +88,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #ifdef LIBFFI_ASM
 
 #ifdef HAVE_PTRAUTH
+#ifdef __CHERI_PURE_CAPABILITY__
+#error "HAVE_PTRAUTH is not compatible"
+#endif
 #define SIGN_LR pacibsp
 #define SIGN_LR_WITH_REG(x) pacib lr, x
 #define AUTH_LR_AND_RET retab
@@ -97,7 +100,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #else
 #define SIGN_LR
 #define SIGN_LR_WITH_REG(x)
+#ifdef __CHERI_PURE_CAPABILITY__
+#define AUTH_LR_AND_RET ret c30
+#else
 #define AUTH_LR_AND_RET ret
+#endif
 #define AUTH_LR_WITH_REG(x)
 #define BRANCH_AND_LINK_TO_REG blr
 #define BRANCH_TO_REG br
