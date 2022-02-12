@@ -234,7 +234,11 @@ CNAME(ffi_call_SYSV):
 	/* Return now that result has been populated. */
 99:
 	AUTH_LR_WITH_REG(PTR_REG(2))
+#ifdef __CHERI_PURE_CAPABILITY__
+	ret c30
+#else
 	ret
+#endif
 
 	cfi_endproc
 
