@@ -91,7 +91,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
    x4 flags
    x5 closure
 */
-
+	.globl	CNAME(ffi_call_SYSV)
+	FFI_HIDDEN(CNAME(ffi_call_SYSV))
+#ifdef __ELF__
+	.type	CNAME(ffi_call_SYSV), #function
+#endif
 	cfi_startproc
 CNAME(ffi_call_SYSV):
 	/* Sign the lr with x1 since that is where it will be stored */
@@ -234,10 +238,7 @@ CNAME(ffi_call_SYSV):
 
 	cfi_endproc
 
-	.globl	CNAME(ffi_call_SYSV)
-	FFI_HIDDEN(CNAME(ffi_call_SYSV))
 #ifdef __ELF__
-	.type	CNAME(ffi_call_SYSV), #function
 	.size CNAME(ffi_call_SYSV), .-CNAME(ffi_call_SYSV)
 #endif
 
@@ -260,6 +261,11 @@ CNAME(ffi_call_SYSV):
 #define ffi_closure_SYSV_FS (8*2 + CALL_CONTEXT_SIZE + 64)
 
 	.align 4
+	.globl	CNAME(ffi_closure_SYSV_V)
+	FFI_HIDDEN(CNAME(ffi_closure_SYSV_V))
+#ifdef __ELF__
+	.type	CNAME(ffi_closure_SYSV_V), #function
+#endif
 CNAME(ffi_closure_SYSV_V):
 	cfi_startproc
 	SIGN_LR
@@ -276,14 +282,16 @@ CNAME(ffi_closure_SYSV_V):
 	b	0f
 	cfi_endproc
 
-	.globl	CNAME(ffi_closure_SYSV_V)
-	FFI_HIDDEN(CNAME(ffi_closure_SYSV_V))
 #ifdef __ELF__
-	.type	CNAME(ffi_closure_SYSV_V), #function
 	.size	CNAME(ffi_closure_SYSV_V), . - CNAME(ffi_closure_SYSV_V)
 #endif
 
 	.align	4
+	.globl	CNAME(ffi_closure_SYSV)
+	FFI_HIDDEN(CNAME(ffi_closure_SYSV))
+#ifdef __ELF__
+	.type	CNAME(ffi_closure_SYSV), #function
+#endif
 	cfi_startproc
 CNAME(ffi_closure_SYSV):
 	SIGN_LR
@@ -310,6 +318,9 @@ CNAME(ffi_closure_SYSV):
 	add	PTR_REG(4), sp, #ffi_closure_SYSV_FS		/* load stack */
 	add	PTR_REG(5), sp, #16+CALL_CONTEXT_SIZE		/* load rvalue */
 	mov	GP_REG(6), GP_REG(8)					/* load struct_rval */
+#ifdef __ELF__
+	.type	CNAME(ffi_closure_SYSV_inner), #function
+#endif
 	bl      CNAME(ffi_closure_SYSV_inner)
 
 	/* Load the return value as directed.  */
@@ -391,39 +402,40 @@ CNAME(ffi_closure_SYSV):
 	AUTH_LR_AND_RET
 	cfi_endproc
 
-	.globl	CNAME(ffi_closure_SYSV)
-	FFI_HIDDEN(CNAME(ffi_closure_SYSV))
 #ifdef __ELF__
-	.type	CNAME(ffi_closure_SYSV), #function
 	.size	CNAME(ffi_closure_SYSV), . - CNAME(ffi_closure_SYSV)
 #endif
 
 #if defined(FFI_EXEC_STATIC_TRAMP)
 	.align 4
+	.globl	CNAME(ffi_closure_SYSV_V_alt)
+	FFI_HIDDEN(CNAME(ffi_closure_SYSV_V_alt))
+#ifdef __ELF__
+	.type	CNAME(ffi_closure_SYSV_V_alt), #function
+#endif
 CNAME(ffi_closure_SYSV_V_alt):
 	/* See the comments above trampoline_code_table. */
 	ldr	GP_REG(17), [sp, #GP_REG_SIZE]			/* Load closure in x17 */
 	add	sp, sp, #16			/* Restore the stack */
 	b	CNAME(ffi_closure_SYSV_V)
 
-	.globl	CNAME(ffi_closure_SYSV_V_alt)
-	FFI_HIDDEN(CNAME(ffi_closure_SYSV_V_alt))
 #ifdef __ELF__
-	.type	CNAME(ffi_closure_SYSV_V_alt), #function
 	.size	CNAME(ffi_closure_SYSV_V_alt), . - CNAME(ffi_closure_SYSV_V_alt)
 #endif
 
 	.align 4
+	.globl	CNAME(ffi_closure_SYSV_alt)
+	FFI_HIDDEN(CNAME(ffi_closure_SYSV_alt))
+#ifdef __ELF__
+	.type	CNAME(ffi_closure_SYSV_alt), #function
+#endif
 CNAME(ffi_closure_SYSV_alt):
 	/* See the comments above trampoline_code_table. */
 	ldr	GP_REG(17), [sp, #GP_REG_SIZE]			/* Load closure in x17 */
 	add	sp, sp, #16			/* Restore the stack */
 	b	CNAME(ffi_closure_SYSV)
 
-	.globl	CNAME(ffi_closure_SYSV_alt)
-	FFI_HIDDEN(CNAME(ffi_closure_SYSV_alt))
 #ifdef __ELF__
-	.type	CNAME(ffi_closure_SYSV_alt), #function
 	.size	CNAME(ffi_closure_SYSV_alt), . - CNAME(ffi_closure_SYSV_alt)
 #endif
 
@@ -447,6 +459,11 @@ CNAME(ffi_closure_SYSV_alt):
  * - restore the stack pointer to what it was when the trampoline was invoked.
  */
 	.align	AARCH64_TRAMP_MAP_SHIFT
+	.globl CNAME(trampoline_code_table)
+	FFI_HIDDEN(CNAME(trampoline_code_table))
+#ifdef __ELF__
+	.type	CNAME(trampoline_code_table), #function
+#endif
 CNAME(trampoline_code_table):
 	.rept	AARCH64_TRAMP_MAP_SIZE / AARCH64_TRAMP_SIZE
 	sub	sp, sp, #16		/* Make space on the stack */
@@ -459,10 +476,7 @@ CNAME(trampoline_code_table):
 	br	PTR_REG(17)			/* Jump to code */
 	.endr
 
-	.globl CNAME(trampoline_code_table)
-	FFI_HIDDEN(CNAME(trampoline_code_table))
 #ifdef __ELF__
-	.type	CNAME(trampoline_code_table), #function
 	.size	CNAME(trampoline_code_table), . - CNAME(trampoline_code_table)
 #endif
 	.align	AARCH64_TRAMP_MAP_SHIFT
@@ -473,6 +487,11 @@ CNAME(trampoline_code_table):
 #ifdef __MACH__
 #include <mach/machine/vm_param.h>
     .align PAGE_MAX_SHIFT
+.globl CNAME(ffi_closure_trampoline_table_page)
+FFI_HIDDEN(CNAME(ffi_closure_trampoline_table_page))
+#ifdef __ELF__
+	.type	CNAME(ffi_closure_trampoline_table_page), #function
+#endif
 CNAME(ffi_closure_trampoline_table_page):
     .rept PAGE_MAX_SIZE / FFI_TRAMPOLINE_SIZE
     adr PTR_REG(16), -PAGE_MAX_SIZE
@@ -481,10 +500,7 @@ CNAME(ffi_closure_trampoline_table_page):
 	nop		/* each entry in the trampoline config page is 2*sizeof(void*) so the trampoline itself cannot be smaller than 16 bytes */
     .endr
 
-    .globl CNAME(ffi_closure_trampoline_table_page)
-    FFI_HIDDEN(CNAME(ffi_closure_trampoline_table_page))
     #ifdef __ELF__
-    	.type	CNAME(ffi_closure_trampoline_table_page), #function
     	.size	CNAME(ffi_closure_trampoline_table_page), . - CNAME(ffi_closure_trampoline_table_page)
     #endif
 #endif
@@ -493,6 +509,11 @@ CNAME(ffi_closure_trampoline_table_page):
 
 #ifdef FFI_GO_CLOSURES
 	.align 4
+	.globl	CNAME(ffi_go_closure_SYSV_V)
+	FFI_HIDDEN(CNAME(ffi_go_closure_SYSV_V))
+#ifdef __ELF__
+	.type	CNAME(ffi_go_closure_SYSV_V), #function
+#endif
 CNAME(ffi_go_closure_SYSV_V):
 	cfi_startproc
 	stp     GP_REG(29), GP_REG(30), [sp, #-ffi_closure_SYSV_FS]!
@@ -508,14 +529,16 @@ CNAME(ffi_go_closure_SYSV_V):
 	b	0f
 	cfi_endproc
 
-	.globl	CNAME(ffi_go_closure_SYSV_V)
-	FFI_HIDDEN(CNAME(ffi_go_closure_SYSV_V))
 #ifdef __ELF__
-	.type	CNAME(ffi_go_closure_SYSV_V), #function
 	.size	CNAME(ffi_go_closure_SYSV_V), . - CNAME(ffi_go_closure_SYSV_V)
 #endif
 
 	.align	4
+	.globl	CNAME(ffi_go_closure_SYSV)
+	FFI_HIDDEN(CNAME(ffi_go_closure_SYSV))
+#ifdef __ELF__
+	.type	CNAME(ffi_go_closure_SYSV), #function
+#endif
 	cfi_startproc
 CNAME(ffi_go_closure_SYSV):
 	stp     GP_REG(29), GP_REG(30), [sp, #-ffi_closure_SYSV_FS]!
@@ -537,10 +560,7 @@ CNAME(ffi_go_closure_SYSV):
 	b	.Ldo_closure
 	cfi_endproc
 
-	.globl	CNAME(ffi_go_closure_SYSV)
-	FFI_HIDDEN(CNAME(ffi_go_closure_SYSV))
 #ifdef __ELF__
-	.type	CNAME(ffi_go_closure_SYSV), #function
 	.size	CNAME(ffi_go_closure_SYSV), . - CNAME(ffi_go_closure_SYSV)
 #endif
 #endif /* FFI_GO_CLOSURES */
