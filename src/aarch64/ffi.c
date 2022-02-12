@@ -66,6 +66,15 @@ struct call_context
   XREG x[N_X_ARG_REG];
 };
 
+struct call_frame
+{
+  XREG lr;
+  XREG fp;
+  XREG rvalue;
+  XREG flags;
+  XREG sp;
+};
+
 #if FFI_EXEC_TRAMPOLINE_TABLE
 
 #ifdef __MACH__
@@ -644,7 +653,8 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 	      void **avalue, void *closure)
 {
   struct call_context *context;
-  void *stack, *frame, *rvalue;
+  struct call_frame *frame;
+  void *stack, *rvalue;
   struct arg_state state;
   size_t stack_bytes, rtype_size, rsize;
   int i, nargs, flags, isvariadic = 0;
@@ -676,12 +686,13 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
     rsize = 16;
 
   /* Allocate consectutive stack for everything we'll need.
-     The frame uses 40 bytes for: lr, fp, rvalue, flags, sp */
-  context = alloca (sizeof(struct call_context) + stack_bytes + 40 + rsize);
+     The frame uses 40/80 bytes for: lr, fp, rvalue, flags, sp */
+  context = alloca (sizeof(struct call_context) + stack_bytes + sizeof(struct call_frame) + rsize);
   _Static_assert(sizeof(struct call_context) == CALL_CONTEXT_SIZE, "");
+  _Static_assert(sizeof(struct call_frame) == CALL_FRAME_SIZE, "");
   stack = context + 1;
   frame = (void*)((uintptr_t)stack + (uintptr_t)stack_bytes);
-  rvalue = (rsize ? (void*)((uintptr_t)frame + 40) : orig_rvalue);
+  rvalue = (rsize ? (void*)((uintptr_t)frame + sizeof(struct call_frame)) : orig_rvalue);
 
   arg_init (&state, stack_bytes);
   for (i = 0, nargs = cif->nargs; i < nargs; i++)
