@@ -64,8 +64,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #define AARCH64_FLAG_VARARG	(1 << 8)
 
 #define N_X_ARG_REG		8
+#ifdef __CHERI_PURE_CAPABILITY__
+#define X_REG_SIZE 16
+#else
+#define X_REG_SIZE 8
+#endif
 #define N_V_ARG_REG		8
-#define CALL_CONTEXT_SIZE	(N_V_ARG_REG * 16 + N_X_ARG_REG * 8)
+#define CALL_CONTEXT_SIZE	(N_V_ARG_REG * 16 + N_X_ARG_REG * X_REG_SIZE)
 
 #if defined(FFI_EXEC_STATIC_TRAMP)
 /*
