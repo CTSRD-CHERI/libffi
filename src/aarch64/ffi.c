@@ -913,9 +913,10 @@ ffi_prep_closure_loc (ffi_closure *closure,
   /* Initialize the dynamic trampoline. */
   memcpy (tramp, trampoline, sizeof(trampoline));
 
-  *(UINT64 *)(tramp + 16) = (uintptr_t)start;
+  *(XREG *)(tramp + 16) = (uintptr_t)start;
 
   ffi_clear_cache(tramp, tramp + FFI_TRAMPOLINE_SIZE);
+  _Static_assert(FFI_TRAMPOLINE_SIZE == 16 + sizeof(XREG), "");
 
   /* Also flush the cache for code mapping.  */
 # ifdef _WIN32
