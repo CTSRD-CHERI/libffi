@@ -27,7 +27,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #endif
 
 #ifndef LIBFFI_ASM
-#ifdef __ILP32__
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define FFI_SIZEOF_ARG __SIZEOF_POINTER__
+typedef __UINTPTR_TYPE__ ffi_arg;
+typedef __INTPTR_TYPE__ ffi_sarg;
+#elif defined(__ILP32__)
 #define FFI_SIZEOF_ARG 8
 #define FFI_SIZEOF_JAVA_RAW  4
 typedef unsigned long long ffi_arg;
@@ -71,7 +75,7 @@ typedef enum ffi_abi
 
 #else
 #ifdef __CHERI_PURE_CAPABILITY__
-#define FFI_TRAMPOLINE_SIZE 48
+#define FFI_TRAMPOLINE_SIZE 32
 #else
 #define FFI_TRAMPOLINE_SIZE 24
 #endif
