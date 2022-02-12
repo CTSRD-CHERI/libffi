@@ -639,6 +639,13 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
   _Static_assert(sizeof(struct call_context) == CALL_CONTEXT_SIZE, "");
   _Static_assert(sizeof(struct call_frame) == CALL_FRAME_SIZE, "");
   stack = context + 1;
+#ifdef __CHERI_PURE_CAPABILITY__
+  /*
+   * context is bounded to the alloca size, we want to pass a pointer that
+   * points just after the alloca with the curretn stack bounds.
+   */
+  stack = __builtin_cheri_address_set(__builtin_cheri_stack_get(), (ptraddr_t)stack);
+#endif
   frame = (void*)((uintptr_t)stack + (uintptr_t)stack_bytes);
   rvalue = (rsize ? (void*)((uintptr_t)frame + sizeof(struct call_frame)) : orig_rvalue);
 
