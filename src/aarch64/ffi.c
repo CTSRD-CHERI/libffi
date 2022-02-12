@@ -54,10 +54,16 @@ struct _v
   union _d d[2] __attribute__((aligned(16)));
 };
 
+#ifdef __CHERI_PURE_CAPABILITY__
+typedef uintptr_t XREG;
+#else
+typedef uint64_t XREG;
+#endif
+
 struct call_context
 {
   struct _v v[N_V_ARG_REG];
-  UINT64 x[N_X_ARG_REG];
+  XREG x[N_X_ARG_REG];
 };
 
 #if FFI_EXEC_TRAMPOLINE_TABLE
@@ -620,6 +626,7 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
   /* Allocate consectutive stack for everything we'll need.
      The frame uses 40 bytes for: lr, fp, rvalue, flags, sp */
   context = alloca (sizeof(struct call_context) + stack_bytes + 40 + rsize);
+  _Static_assert(sizeof(struct call_context) == CALL_CONTEXT_SIZE, "");
   stack = context + 1;
   frame = (void*)((uintptr_t)stack + (uintptr_t)stack_bytes);
   rvalue = (rsize ? (void*)((uintptr_t)frame + 40) : orig_rvalue);
