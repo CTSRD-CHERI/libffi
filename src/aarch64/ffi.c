@@ -356,7 +356,11 @@ extend_hfa_type (void *dest, void *src, int h)
   void *x0;
 
   asm volatile (
+#ifdef __CHERI_PURE_CAPABILITY__
+	"adr	%0, 0f+1\n" /* +1 is needed to stay in C64 mode */
+#else
 	"adr	%0, 0f\n"
+#endif
 "	add	%0, %0, %1\n"
 "	br	%0\n"
 "0:	ldp	s16, s17, [%3]\n"	/* S4 */
