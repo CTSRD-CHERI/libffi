@@ -160,7 +160,12 @@ CNAME(ffi_call_SYSV):
 	ldp     GP_REG(29), GP_REG(30), [PTR_REG(29)]
 
 	/* Save the return value as directed.  */
+#ifdef __CHERI_PURE_CAPABILITY__
+	/* We have to ensure that the LSB remains set to stay in C64 mode. */
+	adr	GP_REG(5), 0f+1
+#else
 	adr	GP_REG(5), 0f
+#endif
 	and	w4, w4, #AARCH64_RET_MASK
 	add	PTR_REG(5), PTR_REG(5), INT_REG(4), lsl #3
 	br	PTR_REG(5)
