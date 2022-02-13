@@ -181,7 +181,7 @@ CNAME(ffi_call_SYSV):
 	b 99f
 2:	stp	x0, x1, [PTR_REG(3)]		/* INT128 */
 	b 99f
-3:	brk	#1000			/* UNUSED */
+3:	str	PTR_REG(0), [PTR_REG(3)]	/* POINTER */
 	b 99f
 4:	brk	#1000			/* UNUSED */
 	b 99f
