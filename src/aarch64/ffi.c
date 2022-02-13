@@ -340,6 +340,12 @@ extend_integer_type (void *source, int type)
     }
 }
 
+#ifdef __CHERI_PURE_CAPABILITY__
+#define PTR_CONSTR "C"
+#else
+#define PTR_CONSTR "r"
+#endif
+
 #if defined(_MSC_VER)
 void extend_hfa_type (void *dest, void *src, int h);
 #else
@@ -392,8 +398,8 @@ extend_hfa_type (void *dest, void *src, int h)
 "3:	str	q18, [%2, #32]\n"
 "2:	str	q17, [%2, #16]\n"
 "1:	str	q16, [%2]"
-    : "=&r"(x0)
-    : "r"(f * 12), "r"(dest), "r"(src)
+    : "=&" PTR_CONSTR (x0)
+    : "r"(f * 12), PTR_CONSTR(dest), PTR_CONSTR(src)
     : "memory", "v16", "v17", "v18", "v19");
 }
 #endif
@@ -419,19 +425,19 @@ compress_hfa_type (void *dest, void *reg, int h)
     case AARCH64_RET_S2:
       asm ("ldp q16, q17, [%1]\n\t"
 	   "st2 { v16.s, v17.s }[0], [%0]"
-	   : : "r"(dest), "r"(reg) : "memory", "v16", "v17");
+	   : : PTR_CONSTR(dest), PTR_CONSTR(reg) : "memory", "v16", "v17");
       break;
     case AARCH64_RET_S3:
       asm ("ldp q16, q17, [%1]\n\t"
 	   "ldr q18, [%1, #32]\n\t"
 	   "st3 { v16.s, v17.s, v18.s }[0], [%0]"
-	   : : "r"(dest), "r"(reg) : "memory", "v16", "v17", "v18");
+	   : : PTR_CONSTR(dest), PTR_CONSTR(reg) : "memory", "v16", "v17", "v18");
       break;
     case AARCH64_RET_S4:
       asm ("ldp q16, q17, [%1]\n\t"
 	   "ldp q18, q19, [%1, #32]\n\t"
 	   "st4 { v16.s, v17.s, v18.s, v19.s }[0], [%0]"
-	   : : "r"(dest), "r"(reg) : "memory", "v16", "v17", "v18", "v19");
+	   : : PTR_CONSTR(dest), PTR_CONSTR(reg) : "memory", "v16", "v17", "v18", "v19");
       break;
 
     case AARCH64_RET_D1:
@@ -447,19 +453,19 @@ compress_hfa_type (void *dest, void *reg, int h)
     case AARCH64_RET_D2:
       asm ("ldp q16, q17, [%1]\n\t"
 	   "st2 { v16.d, v17.d }[0], [%0]"
-	   : : "r"(dest), "r"(reg) : "memory", "v16", "v17");
+	   : : PTR_CONSTR(dest), PTR_CONSTR(reg) : "memory", "v16", "v17");
       break;
     case AARCH64_RET_D3:
       asm ("ldp q16, q17, [%1]\n\t"
 	   "ldr q18, [%1, #32]\n\t"
 	   "st3 { v16.d, v17.d, v18.d }[0], [%0]"
-	   : : "r"(dest), "r"(reg) : "memory", "v16", "v17", "v18");
+	   : : PTR_CONSTR(dest), PTR_CONSTR(reg) : "memory", "v16", "v17", "v18");
       break;
     case AARCH64_RET_D4:
       asm ("ldp q16, q17, [%1]\n\t"
 	   "ldp q18, q19, [%1, #32]\n\t"
 	   "st4 { v16.d, v17.d, v18.d, v19.d }[0], [%0]"
-	   : : "r"(dest), "r"(reg) : "memory", "v16", "v17", "v18", "v19");
+	   : : PTR_CONSTR(dest), PTR_CONSTR(reg) : "memory", "v16", "v17", "v18", "v19");
       break;
 
     default:
