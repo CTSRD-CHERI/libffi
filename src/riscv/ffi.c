@@ -373,6 +373,8 @@ ffi_call_int (ffi_cif *cif, void (*fn) (void), void *rvalue, void **avalue,
 #ifdef __CHERI_PURE_CAPABILITY__
     cb.aregs = __builtin_cheri_bounds_set(cb.aregs, sizeof(*cb.aregs));
 #endif
+    /* Initialize the frame with 0xaa to detect errors. */
+    memset(cb.aregs, 0xaa, sizeof(*cb.aregs));
     cb.used_stack = (void*)alloc_base;
     cb.struct_stack = (void *) (alloc_base + arg_bytes + rval_bytes);
 
