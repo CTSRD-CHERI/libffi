@@ -1277,6 +1277,11 @@ extern void*     sbrk(ptrdiff_t);
 #define is_aligned(A)       (((size_t)((A)) & (CHUNK_ALIGN_MASK)) == 0)
 #endif
 
+#ifndef roundup2
+#define roundup2(x, align)	\
+	((__typeof__(x))(((uintptr_t)(x)+((align)-1))&(~((align)-1))))
+#endif
+
 /* the number of bytes to offset an address to align it */
 #define align_offset(A)\
  ((((size_t)(A) & CHUNK_ALIGN_MASK) == 0)? 0 :\
