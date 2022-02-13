@@ -575,7 +575,7 @@ ffi_prep_cif_machdep (ffi_cif *cif)
       flags = AARCH64_RET_INT64;
       break;
     case FFI_TYPE_POINTER:
-      flags = (sizeof(void *) == 4 ? AARCH64_RET_UINT32 : AARCH64_RET_INT64);
+      flags = (sizeof(void *) == 4 ? AARCH64_RET_UINT32 : AARCH64_RET_POINTER);
       break;
 
     case FFI_TYPE_FLOAT:
