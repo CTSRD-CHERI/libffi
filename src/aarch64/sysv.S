@@ -78,13 +78,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 	.align 4
 
 /* ffi_call_SYSV
-   extern void ffi_call_SYSV (void *stack, void *frame,
+   extern void ffi_call_SYSV (struct call_context *context, void *frame,
 			      void (*fn)(void), void *rvalue,
 			      int flags, void *closure);
 
    Therefore on entry we have:
 
-   x0 stack
+   x0 context
    x1 frame
    x2 fn
    x3 rvalue
@@ -115,7 +115,11 @@ CNAME(ffi_call_SYSV):
 	mov	GP_REG(9), sp
 	str	GP_REG(9), [PTR_REG(1), #4*GP_REG_SIZE]
 	mov	GP_REG(29), GP_REG(1)
+#ifdef __CHERI_PURE_CAPABILITY__
+	scvalue	csp, csp, x0	/* restore stack bounds on context */
+#else
 	mov	sp, GP_REG(0)
+#endif
 	cfi_def_cfa_register(GP_REG(29))
 	cfi_rel_offset (GP_REG(29), 0)
 	cfi_rel_offset (GP_REG(30), GP_REG_SIZE)
