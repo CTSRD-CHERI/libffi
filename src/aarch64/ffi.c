@@ -707,7 +707,14 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 #ifdef __APPLE__
 		memcpy(d, a, s);
 #else
-		*(ffi_arg *)d = ext;
+		/* Integers are extended to uint64_t, but for Morello pointers
+		 * are be 16 bytes, so we have to use uintptr_t/ffi_arg. */
+		if (t == FFI_TYPE_POINTER) {
+		  FFI_ASSERT(s == sizeof(void*));
+		  *(uintptr_t *)d = ext;
+		} else {
+		  *(uint64_t *)d = (uint64_t)ext;
+		}
 #endif
 	      }
 	  }
