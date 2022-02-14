@@ -657,13 +657,21 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
   stack = __builtin_cheri_address_set(__builtin_cheri_stack_get(), (ptraddr_t)stack);
 #endif
   frame = (void*)((uintptr_t)stack + (uintptr_t)stack_bytes);
-#ifdef __CHERI_PURE_CAPABILITY__
-  frame = __builtin_cheri_bounds_set(frame, sizeof(*frame));
-#endif
   /* Initialize the frame with 0xaa to detect errors. */
   memset(context, 0xaa, sizeof(*context));
   memset(frame, 0xaa, sizeof(*frame));
-  rvalue = (rsize ? (void*)((uintptr_t)frame + sizeof(struct call_frame)) : orig_rvalue);
+  if (rsize) {
+    /* frame currently has full stack bounds, so we can use it for derivation. */
+    rvalue = (void*)((uintptr_t)frame + sizeof(struct call_frame));
+#ifdef __CHERI_PURE_CAPABILITY__
+    rvalue = __builtin_cheri_bounds_set(rvalue, rsize);
+#endif
+  } else {
+    rvalue = orig_rvalue;
+  }
+#ifdef __CHERI_PURE_CAPABILITY__
+  frame = __builtin_cheri_bounds_set(frame, sizeof(*frame));
+#endif
 
   arg_init (&state);
   for (i = 0, nargs = cif->nargs; i < nargs; i++)
