@@ -156,6 +156,8 @@ CNAME(ffi_call_SYSV):
 	ldr	GP_REG(9), [PTR_REG(29), #4*GP_REG_SIZE]
 	mov	sp, GP_REG(9)
 	cfi_def_cfa_register (sp)
+	cfi_rel_offset (GP_REG(29), 0)
+	cfi_rel_offset (GP_REG(30), GP_REG_SIZE)
 	mov	GP_REG(2), GP_REG(29)			/* Preserve for auth */
 	ldp     GP_REG(29), GP_REG(30), [PTR_REG(29)]
 
