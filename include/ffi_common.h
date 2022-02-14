@@ -95,18 +95,21 @@ void ffi_type_test(ffi_type *a, char *file, int line);
 #define FFI_ASSERT_VALID_TYPE(x)
 #endif
 
+#ifndef __has_builtin
+#define __has_builtin(...) 0
+#endif
 
 /* v cast to size_t and aligned up to a multiple of a */
 #if __has_builtin(__builtin_align_up)
 #define FFI_ALIGN(v, a)  __builtin_align_up(v, a)
 #else
-#define FFI_ALIGN(v, a)  (((((size_t) (v))-1) | ((a)-1))+1)
+#define FFI_ALIGN(v, a)  (((((uintptr_t) (v))-1) | ((a)-1))+1)
 #endif
 /* v cast to size_t and aligned down to a multiple of a */
 #if __has_builtin(__builtin_align_down)
 #define FFI_ALIGN_DOWN(v, a)  __builtin_align_down(v, a)
 #else
-#define FFI_ALIGN_DOWN(v, a) (((size_t) (v)) & -a)
+#define FFI_ALIGN_DOWN(v, a) (((uintptr_t) (v)) & -a)
 #endif
 
 /* Perform machine dependent cif processing */
