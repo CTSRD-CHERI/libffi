@@ -61,7 +61,12 @@ typedef enum ffi_abi
 
 /* ---- Definitions for closures ----------------------------------------- */
 
+#if defined(__CHERI_PURE_CAPABILITY__)
+/* Not implemented yet for purecap. */
+#define FFI_CLOSURES 0
+#else
 #define FFI_CLOSURES 1
+#endif
 #define FFI_NATIVE_RAW_API 0
 
 #if defined (FFI_EXEC_TRAMPOLINE_TABLE) && FFI_EXEC_TRAMPOLINE_TABLE
