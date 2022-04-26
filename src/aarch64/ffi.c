@@ -392,6 +392,38 @@ extend_integer_type (void *source, int type)
     }
 }
 
+static inline bool
+can_pass_aggregate_in_xregs (ffi_type *ty, size_t *num_xregs,
+			     size_t *num_cheri_caps)
+{
+  FFI_ASSERT (ty->elements != NULL);
+  if (ty->size > 2 * X_REG_SIZE)
+    return false;
+  *num_xregs = 0;
+  *num_cheri_caps = 0;
+#ifdef __CHERI_PURE_CAPABILITY__
+  /* For CHERI up to 32 bytes can be okay if we have either 2 caps, or one
+   * capability + (multiple) integers < 8 bytes. */
+  for (int i = 0; ty->elements[i]; i++)
+    {
+      if (ty->elements[i]->type == FFI_TYPE_STRUCT)
+	abort (); /* TODO: should recurse into structs to flatten them. */
+      else if (ty->elements[i]->type == FFI_TYPE_POINTER)
+	(*num_cheri_caps)++;
+      else if (ty->elements[i]->size > 8)
+	return false; /* can't pass cap+int128 in registers */
+    }
+  FFI_ASSERT (*num_cheri_caps <= 2);
+  /* If there are no capabilities, we can only return 16 bytes in xregs. */
+  if (*num_cheri_caps == 0 && ty->size > 16)
+    return false;
+#endif
+  *num_xregs
+      = *num_cheri_caps + ((ty->size - *num_cheri_caps * X_REG_SIZE) + 7) / 8;
+  FFI_ASSERT (*num_xregs <= 2);
+  return true;
+}
+
 #ifdef __CHERI_PURE_CAPABILITY__
 #define PTR_CONSTR "C"
 #else
@@ -787,6 +819,9 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 	case FFI_TYPE_STRUCT:
 	case FFI_TYPE_COMPLEX:
 	  {
+	    size_t num_capabilities = 0;
+	    size_t num_xregs = 0;
+
 	    h = is_vfp_type (ty);
 	    if (h)
 	      {
@@ -816,7 +851,8 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
                 dest = allocate_to_stack (&state, stack, ty->alignment, s);
               }
 	      }
-	    else if (s > 16)
+	    else if (!can_pass_aggregate_in_xregs (ty, &num_xregs,
+						   &num_capabilities))
 	      {
 		/* If the argument is a composite type that is larger than 16
 		   bytes, then the argument is copied to memory, and
@@ -831,15 +867,36 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 	      }
 	    else
 	      {
-		size_t n = (s + 7) / 8;
-		if (state.ngrn + n <= N_X_ARG_REG)
+		if (state.ngrn + num_xregs <= N_X_ARG_REG)
 		  {
+		    /* If the struct type does not contain capabilities, we
+		     * have to pass two separate 8-byte chunks since context->x
+		     * contains 16-byte registers */
+		    if (num_capabilities == 0)
+		      {
+			FFI_ASSERT (num_xregs == (s + 7) / 8);
+			for (int offset = 0; offset < s; offset += 8)
+			  {
+			    uint64_t tmp = 0;
+			    memcpy (&tmp, (uint8_t *)a + offset,
+				    s - offset > 8 ? 8 : s - offset);
+			    context->x[state.ngrn] = tmp;
+			    state.ngrn++;
+			  }
+			break; /* copy already completed */
+		      }
 		    /* If the argument is a composite type and the size in
 		       double-words is not more than the number of available
 		       X registers, then the argument is copied into
-		       consecutive X registers.  */
-		    dest = &context->x[state.ngrn];
-                    state.ngrn += (unsigned int)n;
+		       consecutive X registers.
+		       NB: If the struct contains capabilities, the layout is
+		       padded appropriately, so we can do a simple memcpy().
+		       */
+		    else
+		      {
+			dest = &context->x[state.ngrn];
+			state.ngrn += num_xregs;
+		      }
 		  }
 		else
 		  {
