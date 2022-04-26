@@ -353,7 +353,7 @@ CNAME(ffi_closure_SYSV):
 	b	99f
 2:	ldp	x0, x1, [PTR_REG(3)]		/* INT128 */
 	b	99f
-3:	brk	#1000			/* UNUSED */
+3:	ldr	PTR_REG(0), [PTR_REG(3)]	/* POINTER */
 	nop
 4:	brk	#1000			/* UNUSED */
 	nop
