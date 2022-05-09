@@ -99,6 +99,7 @@ void ffi_type_test(ffi_type *a, char *file, int line);
 #define __has_builtin(...) 0
 #endif
 
+#include <stdint.h>
 /* v cast to size_t and aligned up to a multiple of a */
 #if __has_builtin(__builtin_align_up)
 #define FFI_ALIGN(v, a)  __builtin_align_up(v, a)
