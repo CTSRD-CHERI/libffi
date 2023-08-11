@@ -334,7 +334,7 @@ allocate_and_copy_struct_to_stack (struct arg_state *state, void *stack,
 }
 
 static ffi_arg
-extend_integer_type (void *source, int type)
+extend_integer_type (uintptr_t *source, int type)
 {
   switch (type)
     {
@@ -763,7 +763,7 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
     {
       ffi_type *ty = cif->arg_types[i];
       size_t s = ty->size;
-      void *a = avalue[i];
+      uintptr_t *a = avalue[i];
       int h, t;
       void *dest;
 
@@ -861,7 +861,7 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 		dest = allocate_and_copy_struct_to_stack (&state, stack,
 							  ty->alignment, s,
 							  avalue[i]);
-		a = &dest;
+		a = (uintptr_t *)&dest;
 		t = FFI_TYPE_POINTER;
 		s = sizeof (void *);
 		goto do_pointer;
