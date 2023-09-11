@@ -1030,7 +1030,6 @@ ffi_tramp_is_present (void *ptr)
 }
 
 # else /* ! FFI_MMAP_EXEC_WRIT */
-
 /* On many systems, memory returned by malloc is writable and
    executable, so just use it.  */
 

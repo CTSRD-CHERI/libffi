@@ -80,7 +80,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 /* ffi_call_SYSV
    extern void ffi_call_SYSV (struct call_context *context, void *frame,
 			      void (*fn)(void), void *rvalue,
-			      int flags, void *closure);
+			      int flags, void *closure, void *anon_args);
 
    Therefore on entry we have:
 
@@ -90,6 +90,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
    x3 rvalue
    x4 flags
    x5 closure
+   x6 anon_args (purecap only)
 */
 	.globl	CNAME(ffi_call_SYSV)
 	FFI_HIDDEN(CNAME(ffi_call_SYSV))
@@ -124,8 +125,11 @@ CNAME(ffi_call_SYSV):
 	cfi_rel_offset (GP_REG(29), 0)
 	cfi_rel_offset (GP_REG(30), GP_REG_SIZE)
 
-	mov	GP_REG(9), GP_REG(2)			/* save fn */
+	mov	GP_REG(10), GP_REG(2)			/* save fn */
 	mov	GP_REG(8), GP_REG(3)			/* install structure return */
+#ifdef __CHERI_PURE_CAPABILITY__
+        mov	GP_REG(9), GP_REG(6)			/* install anonymous argument pointer */
+#endif
 #ifdef FFI_GO_CLOSURES
 	mov	GP_REG(18), GP_REG(5)			/* install static chain */
 #endif
@@ -148,7 +152,7 @@ CNAME(ffi_call_SYSV):
 	/* Deallocate the context, leaving the stacked arguments.  */
 	add	sp, sp, #CALL_CONTEXT_SIZE
 
-	BRANCH_AND_LINK_TO_REG     PTR_REG(9)			/* call fn */
+	BRANCH_AND_LINK_TO_REG     PTR_REG(10)			/* call fn */
 
 	ldp	GP_REG(3), GP_REG(4), [PTR_REG(29), #2*GP_REG_SIZE]	/* reload rvalue and flags */
 
@@ -273,7 +277,7 @@ CNAME(ffi_call_SYSV):
    the call context.
 */
 
-#define ffi_closure_SYSV_FS (8*2 + CALL_CONTEXT_SIZE + 64)
+#define ffi_closure_SYSV_FS (GP_REG_SIZE*2 + CALL_CONTEXT_SIZE + 64)
 
 	.align 4
 	.globl	CNAME(ffi_closure_SYSV_V)
@@ -290,10 +294,10 @@ CNAME(ffi_closure_SYSV_V):
 	cfi_rel_offset (GP_REG(30), GP_REG_SIZE)
 
 	/* Save the argument passing vector registers.  */
-	stp     q0, q1, [sp, #16 + 0]
-	stp     q2, q3, [sp, #16 + 32]
-	stp     q4, q5, [sp, #16 + 64]
-	stp     q6, q7, [sp, #16 + 96]
+	stp     q0, q1, [sp, #2*GP_REG_SIZE + 0]
+	stp     q2, q3, [sp, #2*GP_REG_SIZE + 32]
+	stp     q4, q5, [sp, #2*GP_REG_SIZE + 64]
+	stp     q6, q7, [sp, #2*GP_REG_SIZE + 96]
 	b	0f
 	cfi_endproc
 
@@ -318,10 +322,10 @@ CNAME(ffi_closure_SYSV):
 	mov     GP_REG(29), sp
 
 	/* Save the argument passing core registers.  */
-	stp     GP_REG(0), GP_REG(1), [sp, #16 + 16*N_V_ARG_REG + 0*GP_REG_SIZE]
-	stp     GP_REG(2), GP_REG(3), [sp, #16 + 16*N_V_ARG_REG + 2*GP_REG_SIZE]
-	stp     GP_REG(4), GP_REG(5), [sp, #16 + 16*N_V_ARG_REG + 4*GP_REG_SIZE]
-	stp     GP_REG(6), GP_REG(7), [sp, #16 + 16*N_V_ARG_REG + 6*GP_REG_SIZE]
+	stp     GP_REG(0), GP_REG(1), [sp, #2*GP_REG_SIZE + 16*N_V_ARG_REG + 0*GP_REG_SIZE]
+	stp     GP_REG(2), GP_REG(3), [sp, #2*GP_REG_SIZE + 16*N_V_ARG_REG + 2*GP_REG_SIZE]
+	stp     GP_REG(4), GP_REG(5), [sp, #2*GP_REG_SIZE + 16*N_V_ARG_REG + 4*GP_REG_SIZE]
+	stp     GP_REG(6), GP_REG(7), [sp, #2*GP_REG_SIZE + 16*N_V_ARG_REG + 6*GP_REG_SIZE]
 
 	/* Load ffi_closure_inner arguments.  */
 	ldp	PTR_REG(0), PTR_REG(1), [PTR_REG(17), #FFI_TRAMPOLINE_CLOSURE_OFFSET]	/* load cif, fn */
@@ -329,9 +333,9 @@ CNAME(ffi_closure_SYSV):
 #ifdef FFI_GO_CLOSURES
 .Ldo_closure:
 #endif
-	add	PTR_REG(3), sp, #16				/* load context */
-	add	PTR_REG(4), sp, #ffi_closure_SYSV_FS		/* load stack */
-	add	PTR_REG(5), sp, #16+CALL_CONTEXT_SIZE		/* load rvalue */
+	add	PTR_REG(3), sp, #2*GP_REG_SIZE				/* load context */
+	add	PTR_REG(4), sp, #ffi_closure_SYSV_FS			/* load stack */
+	add	PTR_REG(5), sp, #2*GP_REG_SIZE+CALL_CONTEXT_SIZE	/* load rvalue */
 	mov	GP_REG(6), GP_REG(8)					/* load struct_rval */
 #ifdef __ELF__
 	.type	CNAME(ffi_closure_SYSV_inner), #function
@@ -339,10 +343,15 @@ CNAME(ffi_closure_SYSV):
 	bl      CNAME(ffi_closure_SYSV_inner)
 
 	/* Load the return value as directed.  */
+#ifdef __CHERI_PURE_CAPABILITY__
+	/* We have to ensure that the LSB remains set to stay in C64 mode. */
+	adr	PTR_REG(1), 0f+1
+#else
 	adr	PTR_REG(1), 0f
+#endif
 	and	w0, w0, #AARCH64_RET_MASK
 	add	PTR_REG(1), PTR_REG(1), INT_REG(0), lsl #3
-	add	PTR_REG(3), sp, #16+CALL_CONTEXT_SIZE
+	add	PTR_REG(3), sp, #2*GP_REG_SIZE+CALL_CONTEXT_SIZE
 	br	PTR_REG(1)
 
 	/* Note that each table entry is 2 insns, and thus 8 bytes.  */

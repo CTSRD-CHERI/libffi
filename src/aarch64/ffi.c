@@ -272,7 +272,7 @@ struct arg_state
   unsigned nsrn;                /* Next vector register number. */
   size_t nsaa;                  /* Next stack offset. */
 
-#if defined (__APPLE__)
+#if defined (__APPLE__) || defined (__CHERI_PURE_CAPABILITY__)
   unsigned allocating_variadic;
 #endif
 };
@@ -284,7 +284,7 @@ arg_init (struct arg_state *state)
   state->ngrn = 0;
   state->nsrn = 0;
   state->nsaa = 0;
-#if defined (__APPLE__)
+#if defined (__APPLE__) || defined (__CHERI_PURE_CAPABILITY__)
   state->allocating_variadic = 0;
 #endif
 }
@@ -302,6 +302,10 @@ allocate_to_stack (struct arg_state *state, void *stack,
   if (state->allocating_variadic && alignment < 8)
     alignment = 8;
 #else
+#ifdef __CHERI_PURE_CAPABILITY__
+  if (state->allocating_variadic) 
+    alignment = 16;
+#endif
   if (alignment < 8)
     alignment = 8;
 #endif
@@ -613,8 +617,8 @@ ffi_prep_cif_machdep (ffi_cif *cif)
   return FFI_OK;
 }
 
-#if defined (__APPLE__)
-/* Perform Apple-specific cif processing for variadic calls */
+#if defined (__APPLE__) || defined(__CHERI_PURE_CAPABILITY__)
+/* Perform Apple- or purecap- specific cif processing for variadic calls */
 ffi_status FFI_HIDDEN
 ffi_prep_cif_machdep_var(ffi_cif *cif, unsigned int nfixedargs,
 			 unsigned int ntotalargs)
@@ -631,11 +635,15 @@ ffi_prep_cif_machdep_var(ffi_cif *cif, unsigned int nfixedargs, unsigned int nto
   cif->flags |= AARCH64_FLAG_VARARG;
   return status;
 }
-#endif /* __APPLE__ */
+#endif /* __APPLE__ || __CHERI_PURE_CAPABILITY__ */
 
 extern void ffi_call_SYSV (struct call_context *context, void *frame,
 			   void (*fn)(void), void *rvalue, int flags,
-			   void *closure) FFI_HIDDEN;
+			   void *closure
+#ifdef __CHERI_PURE_CAPABILITY__
+			   , void *anon_args
+#endif
+			   ) FFI_HIDDEN;
 
 /* Call a function with the provided arguments and capture the return
    value.  */
@@ -650,7 +658,9 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
   size_t stack_bytes, rtype_size, rsize;
   int i, nargs, flags, isvariadic = 0;
   ffi_type *rtype;
-
+#ifdef __CHERI_PURE_CAPABILITY__
+  void *anon_args = NULL;
+#endif
   flags = cif->flags;
   rtype = cif->rtype;
   rtype_size = rtype->size;
@@ -770,6 +780,18 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 	    void *dest;
 	    size_t num_capabilities = 0;
 	    size_t num_xregs = 0;
+#ifdef __CHERI_PURE_CAPABILITY__
+	    if (state.allocating_variadic && s > 16)
+	      {
+		/* If an Anonymous argument is larger than 16 bytess, then
+		   the argument has been copied  to memory, and the argument
+		   is replaced by a pointer to the copy.  */
+		a = &avalue[i];
+		t = FFI_TYPE_POINTER;
+		s = sizeof (void *);
+		goto do_pointer;
+	      }
+#endif
 	    h = is_vfp_type (ty);
 	    if (h)
 	      {
@@ -803,8 +825,9 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 						   &num_capabilities))
 	      {
 		/* If the argument is a composite type that is larger than 16
-		   bytes, then the argument has been copied to memory, and
-		   the argument is replaced by a pointer to the copy.  */
+		   bytes or 2 capabilities, then the argument has been copied
+		   to memory, and the argument is replaced by a pointer to
+		   the copy.  */
 		a = &avalue[i];
 		t = FFI_TYPE_POINTER;
 		s = sizeof (void *);
@@ -861,17 +884,26 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 	  abort();
 	}
 
-#if defined (__APPLE__)
-      if (i + 1 == cif->aarch64_nfixedargs)
+#if defined (__APPLE__) || defined (__CHERI_PURE_CAPABILITY__)
+      if (i + 1 == cif->aarch64_nfixedargs && i + 1 < nargs)
 	{
 	  state.ngrn = N_X_ARG_REG;
 	  state.nsrn = N_V_ARG_REG;
 	  state.allocating_variadic = 1;
+#ifdef __CHERI_PURE_CAPABILITY__
+#include <cheriintrin.h>
+	  state.nsaa = FFI_ALIGN(state.nsaa, 16);
+	  anon_args = cheri_bounds_set((char*)stack + state.nsaa, 
+			  16*(nargs - cif->aarch64_nfixedargs));
+#endif 
 	}
 #endif
     }
-
+#ifdef __CHERI_PURE_CAPABILITY__
+  ffi_call_SYSV (context, frame, fn, rvalue, flags, closure, anon_args);
+#else
   ffi_call_SYSV (context, frame, fn, rvalue, flags, closure);
+#endif
 
   if (flags & AARCH64_RET_NEED_COPY)
     memcpy (orig_rvalue, rvalue, rtype_size);
@@ -931,9 +963,15 @@ ffi_prep_closure_loc (ffi_closure *closure,
 #endif
 #else
   static const unsigned char trampoline[16] = {
+#ifdef __CHERI_PURE_CAPABILITY__
+    0x30, 0x00, 0x00, 0x82,	/* ldr	c16, tramp+16	*/
+    0xf1, 0xff, 0xff, 0x10,	/* adr	c17, tramp+0	*/
+    0x00, 0x12, 0xc2, 0xc2	/* br	c16		*/
+#else
     0x90, 0x00, 0x00, 0x58,	/* ldr	x16, tramp+16	*/
     0xf1, 0xff, 0xff, 0x10,	/* adr	x17, tramp+0	*/
     0x00, 0x02, 0x1f, 0xd6	/* br	x16		*/
+#endif
   };
   char *tramp = closure->tramp;
 
@@ -1043,7 +1081,7 @@ ffi_closure_SYSV_inner (ffi_cif *cif,
     {
       ffi_type *ty = cif->arg_types[i];
       int t = ty->type;
-      size_t n, s = ty->size;
+      size_t n, n_caps, s = ty->size;
 
       switch (t)
 	{
@@ -1113,7 +1151,7 @@ ffi_closure_SYSV_inner (ffi_cif *cif,
                     }
                 }
             }
-          else if (s > 16)
+          else if (!can_pass_aggregate_in_xregs (ty, &n, &n_caps))
             {
               /* Replace Composite type of size greater than 16 with a
                   pointer.  */
@@ -1123,11 +1161,28 @@ ffi_closure_SYSV_inner (ffi_cif *cif,
             }
           else
             {
-              n = (s + 7) / 8;
               if (state.ngrn + n <= N_X_ARG_REG)
-                {
-                  avalue[i] = &context->x[state.ngrn];
-                  state.ngrn += (unsigned int)n;
+		{
+		  /* If the struct type does not contain capabilities, we
+		   * have to reconstruct from two separate 8-byte chunks since
+		   * context->x contains 16-byte registers */
+		  if (n_caps == 0)
+	            {
+                      FFI_ASSERT (n == (s + 7) / 8);
+		      for (int off = 1; off < n; off++)
+			{
+			  memcpy ((uint64_t*)&context->x[state.ngrn] + off, &context->x[state.ngrn + off], 8);
+			}
+		    }
+		  /* If the argument is a composite type and the size in
+		     double-words is not more than the number of available
+		     X registers, then the argument appears in consecutive
+		     X registers.
+		     NB: If the struct contains capabilities, the layout is
+		     padded appropriately so we don't need to copy.
+		     */
+		  avalue[i] = &context->x[state.ngrn];
+                  state.ngrn += n;
                 }
               else
                 {
@@ -1142,7 +1197,7 @@ ffi_closure_SYSV_inner (ffi_cif *cif,
           abort();
       }
 
-#if defined (__APPLE__)
+#if defined (__APPLE__) || defined (__CHERI_PURE_CAPABILITY__)
       if (i + 1 == cif->aarch64_nfixedargs)
 	{
 	  state.ngrn = N_X_ARG_REG;
