@@ -35,13 +35,13 @@ if { [string match $compiler_vendor "microsoft"] } {
 
 set tlist [lsort [glob -nocomplain -- $srcdir/$subdir/*.c]]
 
-if { [libffi_feature_test "#if FFI_CLOSURES"] } {
-    run-many-tests $tlist ""
-} else {
-    foreach test $tlist {
-	unsupported "$test"
-    }
-}
+#if { [libffi_feature_test "#if FFI_CLOSURES"] } {
+run-many-tests $tlist ""
+#} else {
+#    foreach test $tlist {
+#	unsupported "$test"
+#    }
+#}
 
 set tlist [lsort [glob -nocomplain -- $srcdir/$subdir/*.cc]]
 
@@ -52,7 +52,7 @@ if { [istarget "or1k-*-*"] } {
     }
 } else {
     if { [libffi_feature_test "#if FFI_CLOSURES"] } {
-        run-many-tests $tlist  $additional_options
+    run-many-tests $tlist  $additional_options
     } else {
         foreach test $tlist {
 	    unsupported "$test"
