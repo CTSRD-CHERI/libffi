@@ -345,6 +345,22 @@ extend_integer_type (void *source, int type)
     }
 }
 
+static bool can_pass_nested_aggregate(ffi_type *ty, size_t *num_cheri_caps) {
+  for (int i = 0; ty->elements[i]; i++)
+    {
+      if (ty->elements[i]->type == FFI_TYPE_STRUCT)
+	{
+          /* Recurse into structs to flatten them. */
+	  if(!can_pass_nested_aggregate(ty->elements[i], num_cheri_caps)) return false;
+	} 
+      else if (ty->elements[i]->type == FFI_TYPE_POINTER)
+	(*num_cheri_caps)++;
+      else if (ty->elements[i]->size > 8)
+	return false; /* can't pass cap+int128 in registers */
+    }
+  return true;
+}
+
 static inline bool
 can_pass_aggregate_in_xregs (ffi_type *ty, size_t *num_xregs,
 			     size_t *num_cheri_caps)
@@ -360,7 +376,10 @@ can_pass_aggregate_in_xregs (ffi_type *ty, size_t *num_xregs,
   for (int i = 0; ty->elements[i]; i++)
     {
       if (ty->elements[i]->type == FFI_TYPE_STRUCT)
-	abort (); /* TODO: should recurse into structs to flatten them. */
+	{
+          /* Recurse into structs to flatten them. */
+	  if(!can_pass_nested_aggregate(ty->elements[i], num_cheri_caps)) return false;
+	} 
       else if (ty->elements[i]->type == FFI_TYPE_POINTER)
 	(*num_cheri_caps)++;
       else if (ty->elements[i]->size > 8)
