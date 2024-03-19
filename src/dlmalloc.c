@@ -1362,9 +1362,9 @@ static inline void *bound_ptr(void *mem, size_t bytes)
 #else
 	ptr = mem;
 #endif
+	mem2chunk(mem)->pad = mem;
 	ptr = __builtin_cheri_perms_and(ptr,
 	    CHERI_PERMS_USERSPACE_DATA & ~CHERI_PERM_CHERIABI_VMMAP);
-	mem2chunk(mem)->pad = mem;
 	return ptr;
 }
 #endif
@@ -1396,7 +1396,7 @@ static inline void *unbound_ptr(mstate m, msegmentptr *spp, void *mem)
 		USAGE_ERROR_ACTION(m, mem);
 	ptr = mem;
 #endif
-	if (ptr != mem2chunk(ptr)->pad ||
+	if ((size_t)ptr != (size_t)mem2chunk(ptr)->pad ||
 	    (__builtin_cheri_perms_get(mem2chunk(ptr)->pad) &
 	     CHERI_PERM_CHERIABI_VMMAP) == 0)
 		USAGE_ERROR_ACTION(m, mem);
