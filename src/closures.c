@@ -852,7 +852,11 @@ dlmmap_locked (void *start, size_t length, int prot, int flags, off_t offset)
       return start;
     }
 
-  mmap_exec_offset ((char *)start, length) = (char*)ptr - (char*)start;
+#ifdef __CHERI_PURE_CAPABILITY__
+  mmap_exec_base ((char *)start, length) = (char*)ptr + 1;
+#else
+  mmap_exec_base ((char *)start, length) = (char*)ptr;
+#endif
 
   execsize += length;
 
@@ -888,10 +892,17 @@ dlmmap (void *start, size_t length, int prot,
     {
       ptr = mmap (start, length, prot | PROT_EXEC, flags, fd, offset);
 
-      if (ptr != MFAIL || (errno != EPERM && errno != EACCES))
-	/* Cool, no need to mess with separate segments.  */
+      if (ptr != MFAIL || (errno != EPERM && errno != EACCES)) {
+	/* Cool, no need to mess with separate segments.
+           We still need to inform the segment code though,
+	   and set low bit for C64 */
+#ifdef __CHERI_PURE_CAPABILITY__
+	mmap_exec_base ((char *)ptr, length) = (char*)ptr + 1;
+#else
+	mmap_exec_base ((char *)ptr, length) = (char*)ptr;
+#endif
 	return ptr;
-
+      }
       /* If MREMAP_DUP is ever introduced and implemented, try mmap
 	 with ((prot & ~PROT_WRITE) | PROT_EXEC) and mremap with
 	 MREMAP_DUP and prot at this point.  */
