@@ -27,6 +27,10 @@
    DEALINGS IN THE SOFTWARE.
    ----------------------------------------------------------------------- */
 
+#ifdef __CHERI_PURE_CAPABILITY__
+#include <cheriintrin.h>
+#endif
+
 #if defined __linux__ && !defined _GNU_SOURCE
 #define _GNU_SOURCE 1
 #endif
@@ -978,8 +982,11 @@ ffi_closure_alloc (size_t size, void **code)
   if (ptr)
     {
       msegmentptr seg = segment_holding (gm, ptr);
-
+#ifdef __CHERI_PURE_CAPABILITY__
+      *code = cheri_sentry_create(add_segment_exec_offset (ptr, seg));
+#else
       *code = add_segment_exec_offset (ptr, seg);
+#endif
       if (!ffi_tramp_is_supported ())
         return ptr;
 
