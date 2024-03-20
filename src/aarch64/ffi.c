@@ -65,6 +65,9 @@ struct call_context
 {
   struct _v v[N_V_ARG_REG];
   XREG x[N_X_ARG_REG];
+#ifdef __CHERI_PURE_CAPABILITY__
+  XREG x9;
+#endif
 };
 
 struct call_frame
@@ -699,9 +702,28 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
   struct call_frame *frame;
   void *stack, *rvalue;
   struct arg_state state;
-  size_t stack_bytes, rtype_size, rsize;
+  size_t stack_bytes, rtype_size, rsize, total_length;
+  size_t context_length, context_offset, frame_length, frame_offset;
+  size_t rvalue_length, rvalue_offset, stack_length, stack_offset;
   int i, nargs, flags, isvariadic = 0;
+  char *cursor;
   ffi_type *rtype;
+
+#ifdef __CHERI_PURE_CAPABILITY__
+#define SUBOBJECT_ALIGNMENT(length)					\
+	~__builtin_cheri_representable_alignment_mask(length) + 1
+#define SUBOBJECT_LENGTH(length)						\
+	__builtin_cheri_round_representable_length(length)
+#else
+#define SUBOBJECT_ALIGNMENT(length) 1
+#define SUBOBJECT_LENGTH(length) length
+#endif
+#define SUBOBJECT_LAYOUT(length, subobj_length, subobj_offset, size, type) \
+	subobj_length = SUBOBJECT_LENGTH(size);				\
+	length = __align_up(length, _Alignof(type));			\
+	length = __align_up(length, SUBOBJECT_ALIGNMENT(subobj_length)); \
+	subobj_offset = length;						\
+	length += subobj_length;
 
   flags = cif->flags;
   rtype = cif->rtype;
@@ -728,35 +750,51 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
   else if (flags & AARCH64_RET_NEED_COPY)
     rsize = 16;
 
-  /* Allocate consectutive stack for everything we'll need.
-     The frame uses 40/80 bytes for: lr, fp, rvalue, flags, sp */
-  context = alloca (sizeof(struct call_context) + stack_bytes + sizeof(struct call_frame) + rsize);
-  _Static_assert(sizeof(struct call_context) == CALL_CONTEXT_SIZE, "");
-  _Static_assert(sizeof(struct call_frame) == CALL_FRAME_SIZE, "");
-  stack = context + 1;
-#ifdef __CHERI_PURE_CAPABILITY__
   /*
-   * context is bounded to the alloca size, we want to pass a pointer that
-   * points just after the alloca with the curretn stack bounds.
+   * Compute sub-objects' layouts, i.e. sizes and offsets.
+   *
+   * On CHERI-extended architectures, the allocation is appropriately padded to
+   * use precise bounds for sub-objects, including the stack and on-stack
+   * function arguments referenced by the c9 capability register.
    */
-  stack = __builtin_cheri_address_set(__builtin_cheri_stack_get(), (ptraddr_t)stack);
-#endif
-  frame = (void*)((uintptr_t)stack + (uintptr_t)stack_bytes);
-  /* Initialize the frame with 0xaa to detect errors. */
-  memset(context, 0xaa, sizeof(*context));
-  memset(frame, 0xaa, sizeof(*frame));
-  if (rsize) {
-    /* frame currently has full stack bounds, so we can use it for derivation. */
-    rvalue = (void*)((uintptr_t)frame + sizeof(struct call_frame));
+  total_length = 0;
+  SUBOBJECT_LAYOUT(total_length, context_length, context_offset,
+    sizeof(*context), typeof(*context));
+  _Static_assert(sizeof(*context) == CALL_CONTEXT_SIZE, "");
+  SUBOBJECT_LAYOUT(total_length, stack_length, stack_offset,
+    stack_bytes, max_align_t);
+  SUBOBJECT_LAYOUT(total_length, frame_length, frame_offset, sizeof(*frame),
+    typeof(*frame));
+  _Static_assert(sizeof(*frame) == CALL_FRAME_SIZE, "");
+  SUBOBJECT_LAYOUT(total_length, rvalue_length, rvalue_offset, rsize,
+    max_align_t);
+
+  /*
+   * Allocate consectutive stack for everything we'll need.
+   * The frame uses 40/80 bytes for: lr, fp, rvalue, flags, sp.
+   */
+  context = alloca (total_length);
+
+  cursor = (char *)context;
+  context = (struct call_context *)(cursor + context_offset);
+  stack = (void *)(cursor + stack_offset);
+  frame = (struct call_frame *)(cursor + frame_offset);
 #ifdef __CHERI_PURE_CAPABILITY__
-    rvalue = __builtin_cheri_bounds_set(rvalue, rsize);
+  context = __builtin_cheri_bounds_set_exact(context, context_length);
+  stack = __builtin_cheri_bounds_set_exact(stack, stack_length);
+  frame = __builtin_cheri_bounds_set_exact(frame, frame_length);
+#endif
+  /* Initialize the frame with 0xaa to detect errors. */
+  memset(context, 0xaa, context_length);
+  memset(frame, 0xaa, frame_length);
+  if (rsize) {
+    rvalue = (void *)(cursor + rvalue_offset);
+#ifdef __CHERI_PURE_CAPABILITY__
+    rvalue = __builtin_cheri_bounds_set_exact(rvalue, rvalue_length);
 #endif
   } else {
     rvalue = orig_rvalue;
   }
-#ifdef __CHERI_PURE_CAPABILITY__
-  frame = __builtin_cheri_bounds_set(frame, sizeof(*frame));
-#endif
 
   arg_init (&state, stack_bytes);
   for (i = 0, nargs = cif->nargs; i < nargs; i++)
@@ -927,10 +965,38 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 #endif
     }
 
+#ifdef __CHERI_PURE_CAPABILITY__
+  /*
+   * Narrow bounds of c9 to on-stack arguments excluding argument structure
+   * objects passed by value in the function call which were replaced by
+   * pointers to the objects in the on-stack arguments.
+   *
+   * We can use precise bounds for the stack capability because it is already
+   * aligned to a larger size than its effective bounds.
+   */
+  if (state.nsaa > 0) {
+    FFI_ASSERT(SUBOBJECT_LENGTH(state.nsaa) <= stack_length);
+    FFI_ASSERT(stack == __align_up(stack, SUBOBJECT_ALIGNMENT(state.nsaa)));
+    context->x9 = (XREG)__builtin_cheri_bounds_set_exact(stack,
+      SUBOBJECT_LENGTH(state.nsaa));
+  } else {
+    /*
+     * CheriABI requires c9 to be set to NULL if there are no on-stack variadic
+     * arguments. In other cases, we want to clear 0xaa to indicate c9 was
+     * correctly handled.
+     */
+    context->x9 = (XREG)NULL;
+  }
+#endif
+
   ffi_call_SYSV (context, frame, fn, rvalue, flags, closure);
 
   if (flags & AARCH64_RET_NEED_COPY)
     memcpy (orig_rvalue, rvalue, rtype_size);
+
+#undef SUBOBJECT_LENGTH
+#undef SUBOBJECT_ALIGNMENT
+#undef SUBOBJECT_LAYOUT
 }
 
 void

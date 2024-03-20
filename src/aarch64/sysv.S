@@ -135,7 +135,7 @@ CNAME(ffi_call_SYSV):
 	cfi_rel_offset (GP_REG(29), 0)
 	cfi_rel_offset (GP_REG(30), GP_REG_SIZE)
 
-	mov	GP_REG(9), GP_REG(2)			/* save fn */
+	mov	GP_REG(10), GP_REG(2)			/* save fn */
 	mov	GP_REG(8), GP_REG(3)			/* install structure return */
 #ifdef FFI_GO_CLOSURES
 	mov	GP_REG(18), GP_REG(5)			/* install static chain */
@@ -155,11 +155,14 @@ CNAME(ffi_call_SYSV):
 	ldp     GP_REG(2), GP_REG(3), [sp, #16*N_V_ARG_REG + 2*GP_REG_SIZE]
 	ldp     GP_REG(4), GP_REG(5), [sp, #16*N_V_ARG_REG + 4*GP_REG_SIZE]
 	ldp     GP_REG(6), GP_REG(7), [sp, #16*N_V_ARG_REG + 6*GP_REG_SIZE]
+#ifdef __CHERI_PURE_CAPABILITY__
+	ldr     GP_REG(9), [sp, #16*N_V_ARG_REG + 8*GP_REG_SIZE]
+#endif
 
 	/* Deallocate the context, leaving the stacked arguments.  */
 	add	sp, sp, #CALL_CONTEXT_SIZE
 
-	BRANCH_AND_LINK_TO_REG     BR_PTR_REG(9)			/* call fn */
+	BRANCH_AND_LINK_TO_REG     BR_PTR_REG(10)		/* call fn */
 
 	ldp	GP_REG(3), GP_REG(4), [PTR_REG(29), #2*GP_REG_SIZE]	/* reload rvalue and flags */
 
