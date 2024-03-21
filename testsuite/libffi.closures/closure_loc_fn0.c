@@ -85,7 +85,10 @@ int main (void)
 
 #ifndef FFI_EXEC_STATIC_TRAMP
   /* With static trampolines, the codeloc does not point to closure */
+#ifndef __CHERI_PURE_CAPABILITY__
+  /* In purecap, we make codeloc a sentry, so reading is not allowed */
   CHECK(memcmp(pcl, codeloc, sizeof(*pcl)) == 0);
+#endif
 #endif
 
   res = (*((closure_loc_test_type0)codeloc))

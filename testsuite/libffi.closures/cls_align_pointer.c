@@ -19,7 +19,7 @@ static cls_struct_align cls_struct_align_fn(struct cls_struct_align a1,
   struct cls_struct_align result;
 
   result.a = a1.a + a2.a;
-  result.b = (void *)((uintptr_t)a1.b + (uintptr_t)a2.b);
+  result.b = (void *)((uintptr_t)a1.b + (unsigned long long)a2.b);
   result.c = a1.c + a2.c;
 
   printf("%d %" PRIuPTR " %d %d %" PRIuPTR " %d: %d %" PRIuPTR " %d\n", 

@@ -200,7 +200,13 @@ ffi_status FFI_HIDDEN ffi_prep_cif_core(ffi_cif *cif, ffi_abi abi,
 	  if (bytes <= 6*4 && bytes + STACK_ARG_SIZE((*ptr)->size) > 6*4)
 	    bytes = 6*4;
 #endif
-
+#if defined(__CHERI_PURE_CAPABILITY__)
+          if (i == cif->aarch64_nfixedargs) {
+              bytes = (unsigned)FFI_ALIGN(bytes, 16);
+	      bytes += 16*(cif->nargs - i);
+	      break;
+	  }
+#endif
 	  bytes += (unsigned int)STACK_ARG_SIZE((*ptr)->size);
 	}
 #endif

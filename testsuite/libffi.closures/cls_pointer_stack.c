@@ -20,20 +20,20 @@ long dummy_func(
 
 void* cls_pointer_fn2(void* a1, void* a2)
 {
-	long double	trample1	= (intptr_t)a1 + (intptr_t)a2;
+	long double	trample1	= (intptr_t)a1 + (long long)a2;
 	char		trample2	= ((char*)&a1)[0] + ((char*)&a2)[0];
-	long double	trample3	= (intptr_t)trample1 + (intptr_t)a1;
+	long double	trample3	= (intptr_t)trample1 + (long long)a1;
 	char		trample4	= trample2 + ((char*)&a1)[1];
-	long double	trample5	= (intptr_t)trample3 + (intptr_t)a2;
+	long double	trample5	= (intptr_t)trample3 + (long long)a2;
 	char		trample6	= trample4 + ((char*)&a2)[1];
-	long double	trample7	= (intptr_t)trample5 + (intptr_t)trample1;
+	long double	trample7	= (intptr_t)trample5 + (long long)trample1;
 	char		trample8	= trample6 + trample2;
 	void*		result;
 
 	dummyVar	= dummy_func(trample1, trample2, trample3, trample4,
 		trample5, trample6, trample7, trample8);
 
-	result	= (void*)((intptr_t)a1 + (intptr_t)a2);
+	result	= (void*)((intptr_t)a1 + (long long)a2);
 
 	printf("0x%08x 0x%08x: 0x%08x\n", 
 	       (unsigned int)(uintptr_t) a1,
@@ -49,20 +49,20 @@ void* cls_pointer_fn2(void* a1, void* a2)
 
 void* cls_pointer_fn1(void* a1, void* a2)
 {
-	long double	trample1	= (intptr_t)a1 + (intptr_t)a2;
+	long double	trample1	= (intptr_t)a1 + (long long)a2;
 	char		trample2	= ((char*)&a1)[0] + ((char*)&a2)[0];
-	long double	trample3	= (intptr_t)trample1 + (intptr_t)a1;
+	long double	trample3	= (intptr_t)trample1 + (long long)a1;
 	char		trample4	= trample2 + ((char*)&a1)[1];
-	long double	trample5	= (intptr_t)trample3 + (intptr_t)a2;
+	long double	trample5	= (intptr_t)trample3 + (long long)a2;
 	char		trample6	= trample4 + ((char*)&a2)[1];
-	long double	trample7	= (intptr_t)trample5 + (intptr_t)trample1;
+	long double	trample7	= (intptr_t)trample5 + (long long)trample1;
 	char		trample8	= trample6 + trample2;
 	void*		result;
 
 	dummyVar	= dummy_func(trample1, trample2, trample3, trample4,
 		trample5, trample6, trample7, trample8);
 
-	result	= (void*)((intptr_t)a1 + (intptr_t)a2);
+	result	= (void*)((intptr_t)a1 + (long long)a2);
 
 	printf("0x%08x 0x%08x: 0x%08x\n",
                (unsigned int)(intptr_t) a1,
@@ -85,13 +85,13 @@ cls_pointer_gn(ffi_cif* cif __UNUSED__, void* resp,
 	void*	a1	= *(void**)(args[0]);
 	void*	a2	= *(void**)(args[1]);
 
-	long double	trample1	= (intptr_t)a1 + (intptr_t)a2;
+	long double	trample1	= (intptr_t)a1 + (long long)a2;
 	char		trample2	= ((char*)&a1)[0] + ((char*)&a2)[0];
-	long double	trample3	= (intptr_t)trample1 + (intptr_t)a1;
+	long double	trample3	= (intptr_t)trample1 + (long long)a1;
 	char		trample4	= trample2 + ((char*)&a1)[1];
-	long double	trample5	= (intptr_t)trample3 + (intptr_t)a2;
+	long double	trample5	= (intptr_t)trample3 + (long long)a2;
 	char		trample6	= trample4 + ((char*)&a2)[1];
-	long double	trample7	= (intptr_t)trample5 + (intptr_t)trample1;
+	long double	trample7	= (intptr_t)trample5 + (long long)trample1;
 	char		trample8	= trample6 + trample2;
 
 	dummyVar	= dummy_func(trample1, trample2, trample3, trample4,

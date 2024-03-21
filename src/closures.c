@@ -27,6 +27,10 @@
    DEALINGS IN THE SOFTWARE.
    ----------------------------------------------------------------------- */
 
+#ifdef __CHERI_PURE_CAPABILITY__
+#include <cheriintrin.h>
+#endif
+
 #if defined __linux__ && !defined _GNU_SOURCE
 #define _GNU_SOURCE 1
 #endif
@@ -852,7 +856,11 @@ dlmmap_locked (void *start, size_t length, int prot, int flags, off_t offset)
       return start;
     }
 
-  mmap_exec_offset ((char *)start, length) = (char*)ptr - (char*)start;
+#ifdef __CHERI_PURE_CAPABILITY__
+  mmap_exec_base ((char *)start, length) = (char*)ptr + 1;
+#else
+  mmap_exec_base ((char *)start, length) = (char*)ptr;
+#endif
 
   execsize += length;
 
@@ -888,10 +896,17 @@ dlmmap (void *start, size_t length, int prot,
     {
       ptr = mmap (start, length, prot | PROT_EXEC, flags, fd, offset);
 
-      if (ptr != MFAIL || (errno != EPERM && errno != EACCES))
-	/* Cool, no need to mess with separate segments.  */
+      if (ptr != MFAIL || (errno != EPERM && errno != EACCES)) {
+	/* Cool, no need to mess with separate segments.
+           We still need to inform the segment code though,
+	   and set low bit for C64 */
+#ifdef __CHERI_PURE_CAPABILITY__
+	mmap_exec_base ((char *)ptr, length) = (char*)ptr + 1;
+#else
+	mmap_exec_base ((char *)ptr, length) = (char*)ptr;
+#endif
 	return ptr;
-
+      }
       /* If MREMAP_DUP is ever introduced and implemented, try mmap
 	 with ((prot & ~PROT_WRITE) | PROT_EXEC) and mremap with
 	 MREMAP_DUP and prot at this point.  */
@@ -967,8 +982,11 @@ ffi_closure_alloc (size_t size, void **code)
   if (ptr)
     {
       msegmentptr seg = segment_holding (gm, ptr);
-
+#ifdef __CHERI_PURE_CAPABILITY__
+      *code = cheri_sentry_create(add_segment_exec_offset (ptr, seg));
+#else
       *code = add_segment_exec_offset (ptr, seg);
+#endif
       if (!ffi_tramp_is_supported ())
         return ptr;
 
@@ -1030,7 +1048,6 @@ ffi_tramp_is_present (void *ptr)
 }
 
 # else /* ! FFI_MMAP_EXEC_WRIT */
-
 /* On many systems, memory returned by malloc is writable and
    executable, so just use it.  */
 
