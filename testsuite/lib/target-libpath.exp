@@ -24,6 +24,9 @@ set orig_ld_libraryn32_path_saved 0
 set orig_ld_library64_path_saved 0
 set orig_ld_library_path_32_saved 0
 set orig_ld_library_path_64_saved 0
+set orig_ld_64_library_path_saved 0
+set orig_ld_64c_library_path_saved 0
+set orig_ld_64cb_library_path_saved 0
 set orig_dyld_library_path_saved 0
 set orig_path_saved 0
 
@@ -41,6 +44,9 @@ proc set_ld_library_path_env_vars { } {
   global orig_ld_library64_path_saved
   global orig_ld_library_path_32_saved
   global orig_ld_library_path_64_saved
+  global orig_ld_64_library_path_saved
+  global orig_ld_64c_library_path_saved
+  global orig_ld_64cb_library_path_saved
   global orig_dyld_library_path_saved
   global orig_path_saved
   global orig_ld_library_path
@@ -50,6 +56,9 @@ proc set_ld_library_path_env_vars { } {
   global orig_ld_library64_path
   global orig_ld_library_path_32
   global orig_ld_library_path_64
+  global orig_ld_64_library_path
+  global orig_ld_64c_library_path
+  global orig_ld_64cb_library_path
   global orig_dyld_library_path
   global orig_path
   global GCC_EXEC_PREFIX
@@ -97,6 +106,18 @@ proc set_ld_library_path_env_vars { } {
     if [info exists env(LD_LIBRARY_PATH_64)] {
       set orig_ld_library_path_64 "$env(LD_LIBRARY_PATH_64)"
       set orig_ld_library_path_64_saved 1
+    }
+    if [info exists env(LD_64_LIBRARY_PATH)] {
+      set orig_ld_64_library_path "$env(LD_64_LIBRARY_PATH)"
+      set orig_ld_64_library_path_saved 1
+    }
+    if [info exists env(LD_64C_LIBRARY_PATH)] {
+      set orig_ld_64c_library_path "$env(LD_64C_LIBRARY_PATH)"
+      set orig_ld_64c_library_path_saved 1
+    }
+    if [info exists env(LD_64CB_LIBRARY_PATH)] {
+      set orig_ld_64cb_library_path "$env(LD_64CB_LIBRARY_PATH)"
+      set orig_ld_64cb_library_path_saved 1
     }
     if [info exists env(DYLD_LIBRARY_PATH)] {
       set orig_dyld_library_path "$env(DYLD_LIBRARY_PATH)"
@@ -170,6 +191,27 @@ proc set_ld_library_path_env_vars { } {
   } else {
     setenv LD_LIBRARY_PATH_64 "$ld_library_path"
   }
+  if { $orig_ld_64_library_path_saved } {
+    setenv LD_64_LIBRARY_PATH "$ld_library_path:$orig_ld_64_library_path"
+  } elseif { $orig_ld_library_path_saved } {
+    setenv LD_64_LIBRARY_PATH "$ld_library_path:$orig_ld_library_path"
+  } else {
+    setenv LD_64_LIBRARY_PATH "$ld_library_path"
+  }
+  if { $orig_ld_64c_library_path_saved } {
+    setenv LD_64C_LIBRARY_PATH "$ld_library_path:$orig_ld_64c_library_path"
+  } elseif { $orig_ld_library_path_saved } {
+    setenv LD_64C_LIBRARY_PATH "$ld_library_path:$orig_ld_library_path"
+  } else {
+    setenv LD_64C_LIBRARY_PATH "$ld_library_path"
+  }
+  if { $orig_ld_64cb_library_path_saved } {
+    setenv LD_64CB_LIBRARY_PATH "$ld_library_path:$orig_ld_64cb_library_path"
+  } elseif { $orig_ld_library_path_saved } {
+    setenv LD_64CB_LIBRARY_PATH "$ld_library_path:$orig_ld_library_path"
+  } else {
+    setenv LD_64CB_LIBRARY_PATH "$ld_library_path"
+  }
   if { $orig_dyld_library_path_saved } {
     setenv DYLD_LIBRARY_PATH "$ld_library_path:$orig_dyld_library_path"
   } else {
@@ -199,6 +241,9 @@ proc restore_ld_library_path_env_vars { } {
   global orig_ld_library64_path_saved
   global orig_ld_library_path_32_saved
   global orig_ld_library_path_64_saved
+  global orig_ld_64_library_path_saved
+  global orig_ld_64c_library_path_saved
+  global orig_ld_64cb_library_path_saved
   global orig_dyld_library_path_saved
   global orig_path_saved
   global orig_ld_library_path
@@ -208,6 +253,9 @@ proc restore_ld_library_path_env_vars { } {
   global orig_ld_library64_path
   global orig_ld_library_path_32
   global orig_ld_library_path_64
+  global orig_ld_64_library_path
+  global orig_ld_64c_library_path
+  global orig_ld_64cb_library_path
   global orig_dyld_library_path
   global orig_path
 
@@ -249,6 +297,21 @@ proc restore_ld_library_path_env_vars { } {
     setenv LD_LIBRARY_PATH_64 "$orig_ld_library_path_64"
   } elseif [info exists env(LD_LIBRARY_PATH_64)] {
     unsetenv LD_LIBRARY_PATH_64
+  }
+  if { $orig_ld_64_library_path_saved } {
+    setenv LD_64_LIBRARY_PATH "$orig_ld_64_library_path"
+  } elseif [info exists env(LD_64_LIBRARY_PATH)] {
+    unsetenv LD_64_LIBRARY_PATH
+  }
+  if { $orig_ld_64c_library_path_saved } {
+    setenv LD_64C_LIBRARY_PATH "$orig_ld_64c_library_path"
+  } elseif [info exists env(LD_64C_LIBRARY_PATH)] {
+    unsetenv LD_64C_LIBRARY_PATH
+  }
+  if { $orig_ld_64cb_library_path_saved } {
+    setenv LD_64CB_LIBRARY_PATH "$orig_ld_64cb_library_path"
+  } elseif [info exists env(LD_64CB_LIBRARY_PATH)] {
+    unsetenv LD_64CB_LIBRARY_PATH
   }
   if { $orig_dyld_library_path_saved } {
     setenv DYLD_LIBRARY_PATH "$orig_dyld_library_path"
