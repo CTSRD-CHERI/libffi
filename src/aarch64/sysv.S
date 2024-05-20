@@ -74,6 +74,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #define GP_REG_SIZE	8
 #endif
 
+#ifdef __ARM_MORELLO_PURECAP_BENCHMARK_ABI
+#define BR_PTR_REG(n)	INT_REG(n)
+#define RETURN							\
+	and	x30, x30, #~1;					\
+	ret	x30
+#else
+#define BR_PTR_REG(n)	PTR_REG(n)
+#define RETURN							\
+	ret
+#endif
+
 	.text
 	.align 4
 
@@ -148,7 +159,7 @@ CNAME(ffi_call_SYSV):
 	/* Deallocate the context, leaving the stacked arguments.  */
 	add	sp, sp, #CALL_CONTEXT_SIZE
 
-	BRANCH_AND_LINK_TO_REG     PTR_REG(9)			/* call fn */
+	BRANCH_AND_LINK_TO_REG     BR_PTR_REG(9)			/* call fn */
 
 	ldp	GP_REG(3), GP_REG(4), [PTR_REG(29), #2*GP_REG_SIZE]	/* reload rvalue and flags */
 
@@ -240,7 +251,7 @@ CNAME(ffi_call_SYSV):
 	/* Return now that result has been populated. */
 99:
 	AUTH_LR_WITH_REG(PTR_REG(2))
-	ret
+	RETURN
 
 	cfi_endproc
 
@@ -334,7 +345,7 @@ CNAME(ffi_closure_SYSV):
 	and	w0, w0, #AARCH64_RET_MASK
 	add	PTR_REG(1), PTR_REG(1), INT_REG(0), lsl #3
 	add	PTR_REG(3), sp, #16+CALL_CONTEXT_SIZE
-	br	PTR_REG(1)
+	br	BR_PTR_REG(1)
 
 	/* Note that each table entry is 2 insns, and thus 8 bytes.  */
 	.align	4
@@ -479,7 +490,7 @@ CNAME(trampoline_code_table):
 	str	GP_REG(17), [sp, #GP_REG_SIZE]		/* Save data on stack */
 	adr	GP_REG(17), #16372		/* Get code address */
 	ldr	GP_REG(17), [PTR_REG(17)]		/* Load code address into x17 */
-	br	PTR_REG(17)			/* Jump to code */
+	br	BR_PTR_REG(17)			/* Jump to code */
 	.endr
 
 #ifdef __ELF__
@@ -502,7 +513,7 @@ CNAME(ffi_closure_trampoline_table_page):
     .rept PAGE_MAX_SIZE / FFI_TRAMPOLINE_SIZE
     adr PTR_REG(16), -PAGE_MAX_SIZE
     ldp GP_REG(17), GP_REG(16), [PTR_REG(16)]
-    br PTR_REG(16)
+    br BR_PTR_REG(16)
 	nop		/* each entry in the trampoline config page is 2*sizeof(void*) so the trampoline itself cannot be smaller than 16 bytes */
     .endr
 
