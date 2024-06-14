@@ -720,8 +720,8 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
 #endif
 #define SUBOBJECT_LAYOUT(length, subobj_length, subobj_offset, size, type) \
 	subobj_length = SUBOBJECT_LENGTH(size);				\
-	length = __align_up(length, _Alignof(type));			\
-	length = __align_up(length, SUBOBJECT_ALIGNMENT(subobj_length)); \
+	length = FFI_ALIGN(length, _Alignof(type));			\
+	length = FFI_ALIGN(length, SUBOBJECT_ALIGNMENT(subobj_length));	\
 	subobj_offset = length;						\
 	length += subobj_length;
 
@@ -976,7 +976,7 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *orig_rvalue,
    */
   if (state.nsaa > 0) {
     FFI_ASSERT(SUBOBJECT_LENGTH(state.nsaa) <= stack_length);
-    FFI_ASSERT(stack == __align_up(stack, SUBOBJECT_ALIGNMENT(state.nsaa)));
+    FFI_ASSERT(stack == FFI_ALIGN(stack, SUBOBJECT_ALIGNMENT(state.nsaa)));
     context->x9 = (XREG)__builtin_cheri_bounds_set_exact(stack,
       SUBOBJECT_LENGTH(state.nsaa));
   } else {
